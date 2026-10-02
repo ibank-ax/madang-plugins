@@ -189,6 +189,7 @@ for (const catalog of catalogs) {
     if (isDocs) {
       docsPlatforms.add(catalog.platform);
       if (entry.name !== 'docs' || relative(packageRoot) !== docsPaths[catalog.platform]) fail(where, 'DOCS.MADANG 설치 이름 또는 패키지 경로가 달라요');
+      if (catalog.platform === 'codex' && fs.existsSync(path.join(packageRoot, 'plugin.json'))) fail(where, 'DOCS Codex의 env_vars 설정은 .codex-plugin 매니페스트에서 읽어야 해요. root Agent Plugin 매니페스트와 혼용하면 MCP가 누락돼요');
     }
     const primaryPath = path.join(packageRoot, catalog.manifest);
     const manifestPath = fs.existsSync(primaryPath) ? primaryPath : catalog.fallback ? path.join(packageRoot, catalog.fallback) : primaryPath;
