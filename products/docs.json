@@ -1,6 +1,6 @@
 {
-  "version": "1.1.1",
-  "sourceCommit": "4a0b85b337af3e21eafcdd69245dd85d5b9e2bbc",
+  "version": "1.1.2",
+  "sourceCommit": "31f335e70dc2c3044bcecec96401b5c73582f20a",
   "sourceRepository": "ibank-ax/docs.madang.ai",
   "platforms": [
     "claude",
