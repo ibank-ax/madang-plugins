@@ -6,13 +6,9 @@ MADANG 제품의 설치 패키지를 배포하는 공개 저장소입니다. DEV
 
 제품별 이름을 같은 `madang` 마켓플레이스에서 관리합니다. DEV.MADANG은 `dev@madang`, DOCS.MADANG은 `docs@madang`으로 독립 설치합니다.
 
-DOCS.MADANG 연결에는 조직 콘솔의 **설정 > 플러그인.MCP 설정**에서 복사한 MCP 주소를 지정합니다. 주소가 없으면 임의의 조직에 연결하지 않습니다. 공개 패키지는 조직 주소·계정·토큰을 포함하지 않습니다. Node.js 20 이상과 npm/npx가 필요하며 브릿지는 고정 버전 `mcp-remote@0.14.3`를 사용합니다.
+DEV.MADANG의 프로젝트 개발자는 해당 프로젝트의 서버·접속 자격·저장소·도메인·Cloudflare 설정을 관리할 수 있습니다. 직접 관리에는 새 `infra:write`, 환경변수·계정·키 수정에는 `infra:env:write` 동의가 필요합니다. 기존 OAuth 연결은 해당 권한을 선택해 다시 연결하고, PAT는 필요한 권한으로 새로 발급합니다. 기존 `settings:write`는 변경안 제안·웹 승인 범위를 유지합니다. 비밀은 암호화 저장하며 값 대신 저장 유무와 키 이름·판본만 반환합니다.
 
-```bash
-export DOCS_MADANG_MCP_URL="https://조직주소/mcp"
-```
-
-PowerShell: `$env:DOCS_MADANG_MCP_URL="https://조직주소/mcp"`. 변수는 클라이언트를 시작하는 셸에서 지정합니다.
+DEV.MADANG과 DOCS.MADANG 모두 **원격 HTTP MCP·OAuth**를 기본으로 제공합니다. DOCS 플러그인은 `https://docs.madang.ai/mcp`로 연결하고 브라우저에서 이메일로 소속 조직을 찾은 뒤 조직 계정으로 로그인·승인합니다. 조직 URL 환경 변수나 Node.js·로컬 브릿지는 필요하지 않습니다. HTTP 미지원 도구는 조직 콘솔의 **기타 도구(stdio)** 안내를 사용합니다.
 
 ## 설치
 
@@ -28,7 +24,7 @@ claude
 
 스킬은 `/dev:start`, `/dev:go`, `/dev:fix`, `/dev:next`, `/dev:runbook`으로 호출합니다. 처음 MCP를 사용할 때 DEV.MADANG 로그인과 권한 동의를 완료합니다.
 
-DOCS 스킬은 `/docs:setup`, `/docs:knowledge`입니다. 첫 연결 때 브라우저에서 지정한 조직으로 로그인하고 MCP 권한에 동의합니다.
+DOCS 스킬은 `/docs:setup`, `/docs:knowledge`입니다. 첫 MCP 연결의 OAuth 로그인에서 소속 조직을 선택하고 조직 계정으로 로그인·승인합니다.
 
 Claude Desktop에서 마켓플레이스 주소를 입력할 때도 위 HTTPS 주소를 사용합니다. Claude Code 콘솔에서는 `/plugin marketplace add https://github.com/ibank-ax/madang-plugins`를 입력할 수 있습니다.
 
@@ -44,7 +40,7 @@ codex
 
 설치 후 새 대화에서 `$dev-start`, `$dev-go`, `$dev-fix`, `$dev-next`, `$dev-runbook`을 사용할 수 있습니다.
 
-DOCS 스킬은 `$docs-setup`, `$docs-knowledge`입니다. DOCS OAuth 인증은 stdio 브릿지가 연 브라우저에서 진행합니다.
+DOCS 스킬은 `$docs-setup`, `$docs-knowledge`입니다. DOCS MCP 연결의 OAuth 로그인에서 소속 조직을 선택하고 조직 계정으로 로그인·승인합니다.
 
 ### Cursor
 

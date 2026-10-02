@@ -17,6 +17,13 @@ madang MCP 를 쓰는 에이전트가 **항상** 지키는 규칙이다. 절차�
 - 비밀번호·키·토큰·환경변수 값은 어떤 보고·질문·요약·문서·커밋에도 적지 않는다(서버가 `SECRET_NOT_ALLOWED` 로 거부한다). `docs/env/` 아래는 읽지 않는다.
 - 토큰이 든 저장소 주소를 파일·커밋에 남기지 않는다. 비밀번호·개인키를 파일에 저장하지 않는다.
 
+## 프로젝트 인프라 관리
+
+- 해당 프로젝트의 개발자는 OAuth 동의에서 `infra:write`·`infra:env:write`를 켜고 서버·접속 자격·저장소·도메인·배포 설정을 관리할 수 있다. 기존 연결의 권한은 자동으로 늘어나지 않으므로 툴이 보이지 않으면 다시 로그인·동의한다.
+- 먼저 `get_project_settings`·`list_env_keys`로 대상과 현재 판본을 확인한다. 서버 `save_project_server`, 저장소 `save_project_repo`·`save_project_repo_token`, 도메인 `save_project_domain`, 배포 설정 `save_project_deploy_config`, 환경 변수·계정·키 `update_env_values`를 쓴다. 쓰기에는 `confirm:true`, 환경 변수에는 `expectedVersion`을 명시한다.
+- Cloudflare는 `save_project_cloudflare_token`으로 프로젝트 전용 Zone:DNS:Edit 토큰을 암호화 저장하고 `diff_dns_records` → `apply_project_dns(confirm:true)`로 자기 프로젝트 DNS만 반영한다. 플랫폼 전역 연동·다른 프로젝트 도메인·역할 정책은 바꾸지 않는다.
+- 비밀은 사용자가 이 작업에 제공한 값만 암호화 입력 인자로 전달한다. 응답·감사에는 값이 나오지 않으며 보고·질문·산출물에 복사하지 않는다. 등록·수정 권한으로 기존 비밀 열람 권한을 얻지 않는다. 실제 배포·단계 승인 절차는 유지한다.
+
 ## 저장소
 
 - `.madang/` 은 커밋하지 않는다(`.git/info/exclude` 에 추가).

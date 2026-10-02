@@ -1,15 +1,8 @@
 {
   "mcpServers": {
     "docs": {
-      "command": "node",
-      "args": [
-        "scripts/mcp-bridge.mjs"
-      ],
-      "cwd": ".",
-      "env_vars": [
-        "DOCS_MADANG_MCP_URL"
-      ],
-      "startup_timeout_sec": 360,
+      "url": "https://docs.madang.ai/mcp",
+      "startup_timeout_sec": 30,
       "tool_timeout_sec": 300
     }
   }
