@@ -166,6 +166,7 @@ for (const catalog of catalogs) {
     pluginCount++;
     if (!object(entry) || typeof entry.name !== 'string' || !entry.name) { fail(catalog.file, '플러그인 name이 없어요'); continue; }
     const where = `${catalog.file} plugins[${entryIndex}]`;
+    if (catalog.platform === 'codex' && object(entry.policy) && Object.hasOwn(entry.policy, 'authentication') && !['ON_INSTALL', 'ON_USE'].includes(entry.policy.authentication)) fail(`${where}.policy.authentication`, 'Codex 인증 정책은 ON_INSTALL 또는 ON_USE여야 해요');
     if (names.has(entry.name)) fail(where, '플러그인 이름이 겹쳐요');
     names.add(entry.name);
     const source = typeof entry.source === 'string' ? entry.source : object(entry.source) && entry.source.source === 'local' ? entry.source.path : null;
