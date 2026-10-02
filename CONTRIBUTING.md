@@ -8,7 +8,7 @@ DEV.MADANG의 절차 원문은 제품 저장소의 `packages/shared/procedures/*
 
 공개 저장소의 `plugins/**`와 생성된 카탈로그를 손으로 수정하지 않습니다. 제품 원천을 수정하고 생성기를 실행한 뒤 exporter로 다시 내보냅니다. 공개 저장소에만 패키지를 수정하면 다음 export에서 사라지므로 수정 PR은 원천 변경과 연결해야 합니다.
 
-마켓플레이스 이름은 `madang`, DEV.MADANG의 제품 플러그인 이름은 `dev`로 관리합니다. 설치 식별자는 `dev@madang`이며 Claude Code 스킬은 `/dev:*`, Codex는 `$dev-*`, Cursor는 `/dev-*`입니다. 향후 DOCS.MADANG의 설치 식별자는 `docs@madang`이며 현재는 미등록입니다. 제품별 설치 이름과 스킬 이름은 제품 원천에서 함께 관리합니다. MCP 서버 이름은 `madang`으로 유지하며 Claude Code 연결 식별자는 `plugin:dev:madang`입니다. 공개 저장소 README, 유지보수 안내, 검증기와 워크플로는 이 저장소에서 관리합니다.
+마켓플레이스 이름은 `madang`, DEV.MADANG의 제품 플러그인 이름은 `dev`로 관리합니다. 설치 식별자는 `dev@madang`이며 Claude Code 스킬은 `/dev:*`, Codex는 `$dev-*`, Cursor는 `/dev-*`입니다. DOCS.MADANG의 설치 식별자는 `docs@madang`입니다. 제품별 설치 이름과 스킬 이름은 제품 원천에서 함께 관리합니다. MCP 서버 이름은 `madang`으로 유지하며 Claude Code 연결 식별자는 `plugin:dev:madang`입니다. 공개 저장소 README, 유지보수 안내, 검증기와 워크플로는 이 저장소에서 관리합니다.
 
 ## DEV.MADANG 변경 배포
 
@@ -33,6 +33,18 @@ DEV.MADANG의 절차 원문은 제품 저장소의 `packages/shared/procedures/*
 카탈로그 스키마 검증과 별도로 실제 Codex CLI의 마켓플레이스 등록·설치를 원격 환경에서 확인하고 결과를 남깁니다.
 
 익명 clone 검증에서는 저장된 Git 자격증명과 `GH_TOKEN`·`GITHUB_TOKEN`을 사용하지 않습니다. 확인한 공개 커밋과 제품 원천 커밋, 제품 버전, 플랫폼별 결과를 PR 또는 릴리스 기록에 남깁니다.
+
+## DOCS.MADANG 변경 배포
+
+DOCS의 원천은 제품 저장소의 `apps/backend/app/services/mcp/client_bundle.py`(버전·공용 문서 스킬), `public_bundle.py`(매니페스트·설정 스킬·카탈로그), `docs-mcp-bridge.mjs`(조직 연결 브릿지)입니다. 제품 원천 변경을 커밋·푸시한 뒤 공개 저장소의 작업 브랜치에 아래 exporter로 허용 파일만 내보냅니다.
+
+```bash
+python3 scripts/export-public-plugins.py --target /절대/경로/madang-plugins
+```
+
+exporter는 제품 원천이 커밋되어 있는지, 대상의 origin과 작업 브랜치를 확인합니다. `plugins/docs/{claude,codex,cursor}/`, `products/docs.json`, 카탈로그의 `docs` 엔트리만 갱신하며 다른 제품은 보존합니다. `sourceCommit`은 제품 원천의 전체 SHA입니다. DEV 절차와 같이 공개 PR → CI → 반영 → 익명 clone → 플랫폼별 실제 설치를 확인합니다.
+
+공개 DOCS 패키지는 MCP 주소를 하드코딩하지 않습니다. 사용자가 조직 설정에서 복사한 `DOCS_MADANG_MCP_URL`을 지정한 뒤 클라이언트를 시작하고 OAuth로 로그인합니다. 주소가 없거나 플랫폼 주소이면 연결을 중단합니다. Node.js 20 이상과 npm/npx를 요구하며 `mcp-remote@0.14.3`로 stdio를 조직의 HTTPS MCP에 연결합니다. 조직 맞춤 ZIP은 제품 API가 해당 조직 주소로 생성하며 공개 저장소에 내보내지 않습니다. 실제 MCP 권한 검증은 공개 패키지 다운로드·설치와 별도로 수행합니다.
 
 ## 등록 메타데이터와 카탈로그
 
