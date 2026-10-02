@@ -1,0 +1,16 @@
+{
+  "name": "madang",
+  "description": "MADANG 제품군 공개 플러그인 마켓플레이스 — 제품 원천에서 생성한 설치 패키지를 배포해요. 현재 DEV.MADANG 플러그인을 제공해요.",
+  "owner": {
+    "name": "iBank AX 솔루션사업본부",
+    "url": "https://dev.madang.ai"
+  },
+  "plugins": [
+    {
+      "name": "dev",
+      "source": "./plugins/madang",
+      "version": "2.8.2",
+      "description": "DEV.MADANG 연결 한 번으로 끝내요 — 로그인으로 인증하고 MCP와 /dev:start · /dev:go · /dev:fix · /dev:next · /dev:runbook 스킬을 설치해요"
+    }
+  ]
+}

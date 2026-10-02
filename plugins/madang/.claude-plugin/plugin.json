@@ -1,0 +1,16 @@
+{
+  "name": "dev",
+  "displayName": "DEV.MADANG",
+  "description": "DEV.MADANG 을 개발 PM 으로 쓰는 플러그인이에요 — /docs 자료로 프로젝트를 등록하고 12단계 개발 진행의 다음 지시를 받아 산출물을 쓰고 보고·컨펌 요청을 올리며(사람이 웹에서 컨펌·결정), 검수 이슈를 근거와 함께 가져와 수정·PR·보고까지 잇고, 서버 접속·인프라 문서를 저장소에 두지 않고 받아 쓰며, 지식 런북(표준·노하우)을 찾아 근거로 삼고 표준 구조로 정리해 올려요. 설치하면 첫 사용 때 로그인 창이 떠요 — 토큰을 넣을 필요가 없어요.",
+  "version": "2.8.2",
+  "author": {
+    "name": "iBank AX 솔루션사업본부"
+  },
+  "homepage": "https://dev.madang.ai/me/mcp",
+  "mcpServers": {
+    "madang": {
+      "type": "http",
+      "url": "https://dev.madang.ai/mcp"
+    }
+  }
+}
