@@ -14,8 +14,9 @@
     },
     {
       "name": "docs",
+      "displayName": "DOCS.MADANG",
       "source": "./plugins/docs/claude",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "description": "DOCS.MADANG 스킬과 MCP — 조직 주소를 지정하고 OAuth로 로그인"
     }
   ]

@@ -14,17 +14,23 @@ PowerShell에서는 `$env:DOCS_MADANG_MCP_URL="https://조직주소/mcp"`를 사
 ## Claude Code
 
 ```bash
-claude plugin marketplace add ibank-ax/madang-plugins
+claude plugin marketplace add https://github.com/ibank-ax/madang-plugins
 claude plugin install docs@madang
 claude
 ```
 
 `/docs:setup`, `/docs:knowledge` 스킬이 제공됩니다. 최초 MCP 연결 때 브라우저에서 조직 계정으로 로그인합니다.
 
+Claude 앱과 콘솔에서는 같은 Git URL을 사용합니다. `owner/repo`도 지원하지만 `github`와 `git`은 설정에서 다른 출처로 취급됩니다.
+마켓플레이스 추가가 출처 충돌로 실패하면 `~/.claude/settings.json`을 백업하고 `extraKnownMarketplaces.madang.source`가
+`{"source":"git","url":"https://github.com/ibank-ax/madang-plugins"}`인지 확인합니다. 예전 DEV 저장소나 조직 ZIP의 선언이
+남아 있으면 이 항목의 출처만 맞추고 다시 등록합니다. 관리형 설정은 관리자에게 요청하며 다른 설정은 유지합니다.
+마켓플레이스 삭제 명령은 설치된 플러그인도 제거하므로 복구를 위해 먼저 실행하지 않습니다.
+
 ## Codex
 
 ```bash
-codex plugin marketplace add ibank-ax/madang-plugins
+codex plugin marketplace add https://github.com/ibank-ax/madang-plugins
 codex plugin add docs@madang
 codex
 ```

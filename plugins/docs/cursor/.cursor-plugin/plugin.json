@@ -1,8 +1,9 @@
 {
   "name": "docs",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "DOCS.MADANG 조직 문서 검색·열람·등록 스킬과 OAuth MCP 연결",
   "author": {
     "name": "iBank AX 솔루션사업본부"
-  }
+  },
+  "displayName": "DOCS.MADANG"
 }

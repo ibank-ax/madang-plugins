@@ -19,7 +19,7 @@ PowerShell: `$env:DOCS_MADANG_MCP_URL="https://조직주소/mcp"`. 변수는 클
 ### Claude Code
 
 ```bash
-claude plugin marketplace add ibank-ax/madang-plugins
+claude plugin marketplace add https://github.com/ibank-ax/madang-plugins
 claude plugin install dev@madang
 # DOCS.MADANG을 사용할 때
 claude plugin install docs@madang
@@ -29,6 +29,8 @@ claude
 스킬은 `/dev:start`, `/dev:go`, `/dev:fix`, `/dev:next`, `/dev:runbook`으로 호출합니다. 처음 MCP를 사용할 때 DEV.MADANG 로그인과 권한 동의를 완료합니다.
 
 DOCS 스킬은 `/docs:setup`, `/docs:knowledge`입니다. 첫 연결 때 브라우저에서 지정한 조직으로 로그인하고 MCP 권한에 동의합니다.
+
+Claude Desktop에서 마켓플레이스 주소를 입력할 때도 위 HTTPS 주소를 사용합니다. Claude Code 콘솔에서는 `/plugin marketplace add https://github.com/ibank-ax/madang-plugins`를 입력할 수 있습니다.
 
 ### Codex
 
@@ -58,26 +60,38 @@ DOCS 스킬은 `/docs-setup`, `/docs-knowledge`입니다. 조직 주소를 지�
 
 ## 기존 설치를 옮길 때
 
-기존 `madang@madang` 플러그인을 제거하고, `ibank-ax/dev.madang.ai` 마켓플레이스를 공개 배포 저장소로 교체한 뒤 `dev@madang`을 설치합니다. 마켓플레이스 이름은 `madang`, 제품 플러그인 이름은 `dev`입니다. Claude Code 호출은 `/dev:*`, Codex는 `$dev-*`, Cursor는 `/dev-*`로 바뀝니다. MCP 서버 이름 `madang`과 서비스 주소는 유지됩니다.
+기존 `ibank-ax/dev.madang.ai` 출처를 공개 배포 저장소로 바꾼 뒤 `dev@madang`을 설치합니다. 같은 마켓플레이스에 다른 플러그인이 설치되어 있을 수 있으므로 `madang` 마켓플레이스 전체를 제거하지 않습니다. 마켓플레이스 이름은 `madang`, 제품 플러그인 이름은 `dev`입니다. Claude Code 호출은 `/dev:*`, Codex는 `$dev-*`, Cursor는 `/dev-*`로 바뀝니다. MCP 서버 이름 `madang`과 서비스 주소는 유지됩니다.
 
 Claude Code:
 
 ```bash
-claude plugin uninstall madang@madang
-claude plugin marketplace remove madang
-claude plugin marketplace add ibank-ax/madang-plugins
+claude plugin marketplace add https://github.com/ibank-ax/madang-plugins
 claude plugin install dev@madang
 ```
 
-Codex에서는 플러그인 설정에서 기존 `madang@madang`을 제거한 뒤 등록합니다.
+Codex에서는 플러그인 설정의 `madang` 출처를 공개 주소로 갱신한 뒤 등록합니다.
 
 ```bash
-codex plugin marketplace remove madang
 codex plugin marketplace add https://github.com/ibank-ax/madang-plugins
 codex plugin add dev@madang
 ```
 
-Cursor에서는 기존 DEV.MADANG 플러그인과 저장소의 마켓플레이스를 제거한 뒤 새 주소를 Import from Repo로 등록하고 `dev`를 설치합니다. 설치 후 새 대화에서 스킬이 보이고 MCP 연결이 가능한지 확인합니다. 서비스 권한을 새로 동의해야 하는 경우에는 MCP에 다시 로그인합니다.
+Cursor에서는 팀 마켓플레이스의 기존 저장소 출처를 공개 주소로 갱신하고 `dev`를 설치합니다. 출처 수정 메뉴가 없으면 팀 관리자에게 요청합니다. 설치 후 새 대화에서 스킬이 보이고 MCP 연결이 가능한지 확인합니다. 서비스 권한을 새로 동의해야 하는 경우에는 MCP에 다시 로그인합니다. 이전 `madang@madang` 플러그인은 새 `dev@madang`의 작동을 확인한 뒤 해당 플러그인만 제거합니다.
+
+### Claude에서 같은 이름의 마켓플레이스 등록이 실패할 때
+
+이전 저장소가 `madang` 이름으로 선언되어 있으면 Claude Desktop이 새 저장소 등록을 거부할 수 있습니다. 마켓플레이스를 제거하면 함께 설치된 플러그인까지 삭제될 수 있으므로 출처만 수정합니다.
+
+계속 실패하고 로그에 `network source differs`가 있다면 설정에 남아 있는 출처 선언을 확인합니다. 사용하는 프로필의 `settings.json`을 백업한 뒤 `extraKnownMarketplaces.madang.source`만 다음 공개 Git 출처로 맞춥니다. Claude Code의 기본 사용자 설정 위치는 `~/.claude/settings.json`이며 프로필이나 관리 정책에 따라 다를 수 있습니다.
+
+```json
+{
+  "source": "git",
+  "url": "https://github.com/ibank-ax/madang-plugins"
+}
+```
+
+기존 `source: "github"`·`repo: "ibank-ax/dev.madang.ai"` 선언을 위 객체로 교체하며 설정 파일 전체를 덮어쓰지 않습니다. 조직 관리 정책에서 선언한 출처이면 관리자에게 변경을 요청합니다. 설정을 저장하고 Claude를 완전히 종료한 뒤 다시 등록합니다.
 
 ## 배포와 유지보수
 
