@@ -16,12 +16,15 @@ const catalogs = [
 const devPaths = { claude: 'plugins/madang', codex: 'plugins/madang-codex', cursor: 'plugins/madang-cursor' };
 const devSkills = { claude: ['start', 'go', 'fix', 'next', 'runbook'], codex: ['dev-start', 'dev-go', 'dev-fix', 'dev-next', 'dev-runbook'], cursor: ['dev-start', 'dev-go', 'dev-fix', 'dev-next', 'dev-runbook'] };
 const devEndpoint = 'https://dev.madang.ai/mcp';
+const docsPaths = { claude: 'plugins/docs/claude', codex: 'plugins/docs/codex', cursor: 'plugins/docs/cursor' };
+const docsSkills = { claude: ['knowledge', 'setup'], codex: ['docs-knowledge', 'docs-setup'], cursor: ['docs-knowledge', 'docs-setup'] };
 const forbiddenSegments = new Set(['apps', 'packages', 'node_modules', '.madang', '.venv', '__pycache__']);
 const publicRootDirectories = new Set(['.agents', '.claude-plugin', '.cursor-plugin', '.github', 'plugins', 'products', 'scripts', 'assets']);
 const secretRules = [
   ['개인키', /-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/g],
   ['GitHub 토큰', /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{30,})\b/g],
   ['MADANG 토큰', /\bmdg_(?:pat|oat|ort)_[A-Za-z0-9_-]{20,}\b/g],
+  ['DOCS MCP 토큰', /\bdocs_madang_(?:mcp|oauth_at|oauth_rt)_[A-Za-z0-9_-]{20,}\b/g],
   ['JWT', /\beyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\b/g],
   ['API 키', /\bsk-(?:proj-|org-)?[A-Za-z0-9_-]{24,}\b/g],
   ['URL 자격증명', /https?:\/\/[^\s/@:]+:[^\s/@]+@/g],
@@ -155,6 +158,7 @@ else {
 
 let pluginCount = 0;
 const devPlatforms = new Set();
+const docsPlatforms = new Set();
 for (const catalog of catalogs) {
   const absolute = path.join(root, catalog.file);
   const data = readJson(absolute);
@@ -177,9 +181,14 @@ for (const catalog of catalogs) {
     const product = typeof productId === 'string' ? products.get(productId) : null;
     if (!product) fail(where, '연결된 제품 등록 메타데이터가 없어요');
     const isDev = productId === 'dev-madang';
+    const isDocs = productId === 'docs';
     if (isDev) {
       devPlatforms.add(catalog.platform);
       if (entry.name !== 'dev' || relative(packageRoot) !== devPaths[catalog.platform]) fail(where, 'DEV.MADANG 설치 이름 또는 패키지 경로가 달라요');
+    }
+    if (isDocs) {
+      docsPlatforms.add(catalog.platform);
+      if (entry.name !== 'docs' || relative(packageRoot) !== docsPaths[catalog.platform]) fail(where, 'DOCS.MADANG 설치 이름 또는 패키지 경로가 달라요');
     }
     const primaryPath = path.join(packageRoot, catalog.manifest);
     const manifestPath = fs.existsSync(primaryPath) ? primaryPath : catalog.fallback ? path.join(packageRoot, catalog.fallback) : primaryPath;
@@ -214,9 +223,26 @@ for (const catalog of catalogs) {
       if (!endpointCount) fail(where, 'DEV.MADANG MCP 연결이 없어요');
       for (const name of devSkills[catalog.platform]) if (!fs.existsSync(path.join(packageRoot, 'skills', name, 'SKILL.md'))) fail(where, `DEV.MADANG 필수 스킬 ${name}이 없어요`);
     }
+    if (isDocs) {
+      for (const name of docsSkills[catalog.platform]) if (!fs.existsSync(path.join(packageRoot, 'skills', name, 'SKILL.md'))) fail(where, `DOCS.MADANG 필수 스킬 ${name}이 없어요`);
+      const bridge = path.join(packageRoot, 'scripts/mcp-bridge.mjs');
+      if (!safePath(bridge, relative(bridge))) continue;
+      const contents = fs.readFileSync(bridge, 'utf8');
+      if (!contents.includes('process.env.DOCS_MADANG_MCP_URL') || !contents.includes('mcp-remote@0.14.3')) fail(relative(bridge), '조직 URL 환경변수 또는 고정 MCP 브릿지 버전이 없어요');
+      let server;
+      if (catalog.platform === 'claude') server = manifest.mcpServers?.docs;
+      else {
+        const file = path.join(packageRoot, catalog.platform === 'codex' ? 'codex-mcp.json' : 'mcp.json');
+        server = readJson(file)?.mcpServers?.docs;
+      }
+      const expectedArg = catalog.platform === 'claude' ? '${CLAUDE_PLUGIN_ROOT}/scripts/mcp-bridge.mjs' : catalog.platform === 'cursor' ? '${CURSOR_PLUGIN_ROOT}/scripts/mcp-bridge.mjs' : 'scripts/mcp-bridge.mjs';
+      if (!object(server) || server.command !== 'node' || JSON.stringify(server.args) !== JSON.stringify([expectedArg]) || 'url' in server) fail(where, 'DOCS MCP는 조직 URL을 읽는 stdio 브릿지여야 해요');
+      if (catalog.platform === 'codex' && (server?.cwd !== '.' || !server?.env_vars?.includes('DOCS_MADANG_MCP_URL'))) fail(where, 'Codex 플러그인 경로와 조직 URL 전달 설정이 없어요');
+    }
   }
 }
 if (products.has('dev-madang')) for (const platform of Object.keys(devPaths)) if (!devPlatforms.has(platform)) fail('products/dev-madang.json', `${platform} 카탈로그에 DEV.MADANG이 없어요`);
+if (products.has('docs')) for (const platform of Object.keys(docsPaths)) if (!docsPlatforms.has(platform)) fail('products/docs.json', `${platform} 카탈로그에 DOCS.MADANG이 없어요`);
 
 if (failures.length) {
   console.error(`공개 플러그인 검증 실패 ${failures.length}건`);
