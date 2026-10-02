@@ -10,6 +10,12 @@
       "source": "./plugins/madang-cursor",
       "description": "DEV.MADANG 연결 한 번으로 끝내요 — MCP(로그인 창으로 인증)와 /dev-start · /dev-go · /dev-fix · /dev-next · /dev-runbook 스킬, 상시 규칙이 함께 들어와요",
       "version": "2.8.3"
+    },
+    {
+      "name": "docs",
+      "source": "./plugins/docs/cursor",
+      "version": "1.1.0",
+      "description": "DOCS.MADANG 스킬과 MCP — 조직 주소를 지정하고 OAuth로 로그인"
     }
   ]
 }
