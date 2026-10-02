@@ -191,7 +191,7 @@ for (const catalog of catalogs) {
     if (isDocs) {
       docsPlatforms.add(catalog.platform);
       if (entry.name !== 'docs' || relative(packageRoot) !== docsPaths[catalog.platform]) fail(where, 'DOCS.MADANG 설치 이름 또는 패키지 경로가 달라요');
-      if (catalog.platform === 'codex' && fs.existsSync(path.join(packageRoot, 'plugin.json'))) fail(where, 'DOCS Codex의 env_vars 설정은 .codex-plugin 매니페스트에서 읽어야 해요. root Agent Plugin 매니페스트와 혼용하면 MCP가 누락돼요');
+      if (catalog.platform === 'codex' && fs.existsSync(path.join(packageRoot, 'plugin.json'))) fail(where, 'DOCS Codex는 .codex-plugin 매니페스트와 codex-mcp.json을 사용해요. root Agent Plugin 매니페스트와 혼용하면 MCP가 누락될 수 있어요');
     }
     const primaryPath = path.join(packageRoot, catalog.manifest);
     const manifestPath = fs.existsSync(primaryPath) ? primaryPath : catalog.fallback ? path.join(packageRoot, catalog.fallback) : primaryPath;
@@ -232,19 +232,16 @@ for (const catalog of catalogs) {
     }
     if (isDocs) {
       for (const name of docsSkills[catalog.platform]) if (!fs.existsSync(path.join(packageRoot, 'skills', name, 'SKILL.md'))) fail(where, `DOCS.MADANG 필수 스킬 ${name}이 없어요`);
-      const bridge = path.join(packageRoot, 'scripts/mcp-bridge.mjs');
-      if (!safePath(bridge, relative(bridge))) continue;
-      const contents = fs.readFileSync(bridge, 'utf8');
-      if (!contents.includes('process.env.DOCS_MADANG_MCP_URL') || !contents.includes('mcp-remote@0.14.3')) fail(relative(bridge), '조직 URL 환경변수 또는 고정 MCP 브릿지 버전이 없어요');
       let server;
       if (catalog.platform === 'claude') server = manifest.mcpServers?.docs;
       else {
         const file = path.join(packageRoot, catalog.platform === 'codex' ? 'codex-mcp.json' : 'mcp.json');
         server = readJson(file)?.mcpServers?.docs;
       }
-      const expectedArg = catalog.platform === 'claude' ? '${CLAUDE_PLUGIN_ROOT}/scripts/mcp-bridge.mjs' : catalog.platform === 'cursor' ? '${CURSOR_PLUGIN_ROOT}/scripts/mcp-bridge.mjs' : 'scripts/mcp-bridge.mjs';
-      if (!object(server) || server.command !== 'node' || JSON.stringify(server.args) !== JSON.stringify([expectedArg]) || 'url' in server) fail(where, 'DOCS MCP는 조직 URL을 읽는 stdio 브릿지여야 해요');
-      if (catalog.platform === 'codex' && (server?.cwd !== '.' || !server?.env_vars?.includes('DOCS_MADANG_MCP_URL'))) fail(where, 'Codex 플러그인 경로와 조직 URL 전달 설정이 없어요');
+      if (!object(server) || server.url !== 'https://docs.madang.ai/mcp') fail(where, 'DOCS MCP는 공용 native HTTP·OAuth 주소를 사용해야 해요');
+      if (object(server) && ['command', 'args', 'cwd', 'env', 'env_vars', 'headers', 'bearer_token_env_var'].some(key => key in server)) fail(where, 'DOCS 기본 연결에는 stdio·환경 변수·정적 인증 설정을 넣지 않아요');
+      if (catalog.platform === 'claude' && server?.type !== 'http') fail(where, 'Claude DOCS MCP type은 http여야 해요');
+      if (fs.existsSync(path.join(packageRoot, 'scripts/mcp-bridge.mjs'))) fail(where, 'stdio 브릿지는 기본 공개 플러그인에 포함하지 않아요');
     }
   }
 }
