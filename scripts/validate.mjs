@@ -182,6 +182,8 @@ for (const catalog of catalogs) {
     if (!product) fail(where, '연결된 제품 등록 메타데이터가 없어요');
     const isDev = productId === 'dev-madang';
     const isDocs = productId === 'docs';
+    const brand = isDev ? 'DEV.MADANG' : isDocs ? 'DOCS.MADANG' : null;
+    if (brand && ['claude', 'cursor'].includes(catalog.platform) && entry.displayName !== brand) fail(where, `플러그인 카탈로그의 표시 이름은 ${brand}이어야 해요`);
     if (isDev) {
       devPlatforms.add(catalog.platform);
       if (entry.name !== 'dev' || relative(packageRoot) !== devPaths[catalog.platform]) fail(where, 'DEV.MADANG 설치 이름 또는 패키지 경로가 달라요');
@@ -189,7 +191,6 @@ for (const catalog of catalogs) {
     if (isDocs) {
       docsPlatforms.add(catalog.platform);
       if (entry.name !== 'docs' || relative(packageRoot) !== docsPaths[catalog.platform]) fail(where, 'DOCS.MADANG 설치 이름 또는 패키지 경로가 달라요');
-      if (catalog.platform === 'claude' && entry.displayName !== 'DOCS.MADANG') fail(where, 'DOCS Claude 카탈로그의 표시 이름은 DOCS.MADANG이어야 해요');
       if (catalog.platform === 'codex' && fs.existsSync(path.join(packageRoot, 'plugin.json'))) fail(where, 'DOCS Codex의 env_vars 설정은 .codex-plugin 매니페스트에서 읽어야 해요. root Agent Plugin 매니페스트와 혼용하면 MCP가 누락돼요');
     }
     const primaryPath = path.join(packageRoot, catalog.manifest);
@@ -207,9 +208,9 @@ for (const catalog of catalogs) {
     for (const item of manifests) {
       const label = relative(item.file);
       if (item.value.name !== entry.name) fail(label, '매니페스트 name과 카탈로그 name이 달라요');
-      if (isDocs) {
-        const displayName = catalog.platform === 'codex' ? item.value.interface?.displayName : item.value.displayName;
-        if (displayName !== 'DOCS.MADANG') fail(label, 'DOCS 플러그인의 표시 이름은 DOCS.MADANG이어야 해요');
+      if (brand) {
+        const displayName = catalog.platform === 'codex' ? (item.value.interface ?? item.value.extensions?.['com.openai']?.interface)?.displayName : item.value.displayName;
+        if (displayName !== brand) fail(label, `플러그인의 표시 이름은 ${brand}이어야 해요`);
       }
       if (typeof item.value.version !== 'string' || !semver.test(item.value.version)) fail(label, '매니페스트 version이 올바르지 않아요');
       if (item.value.version !== entry.version) fail(label, '매니페스트와 카탈로그 version이 달라요');
