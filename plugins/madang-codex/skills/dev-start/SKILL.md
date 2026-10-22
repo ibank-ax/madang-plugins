@@ -28,6 +28,21 @@ MCP 로그인 전에 동의 화면에서 ‘프로젝트 등록’ 을(개발자
 - 이미 운영 중인 서비스를 개선할 때는 기존 등록·결정·검수 근거를 재사용하고, 영향이 있는 부분 변경 → 커밋·푸시 → 허용된 원격 검수 → 검증된 개선 반영 → 운영 지속 확인으로 이어간다. 초기 등록·18단계 전체 재시작·최초 오픈 절차를 다시 요구하지 않는다.
 - 운영 개선에서 목표 18단계의 17단계는 **검증된 개선 반영**, 18단계는 **운영 지속 확인**으로 읽는다. 기존 승인·실행 권한을 넓히거나 필요한 검수를 생략한다는 뜻은 아니다.
 
+## 18단계·13역할 가이드
+- dev18.v1은 배포된 읽기 가이드예요. 현재 단계 실행·보고·전이는 dev12.v1 12단계이며 새 18단계 run 실행은 지원하지 않아요.
+- 기존 단계 ID·번호·보고·결정·첨부·배포 기록을 보존하고 완료 상태를 새 번호로 복제하지 않아요.
+- 운영 중인 서비스 개선은 기존 등록·유효한 결정·근거를 재사용해요. 초기 등록·전체 18단계 재시작·최초 오픈을 다시 요구하지 않아요. 17단계는 검증된 개선 반영, 18단계는 운영 지속 확인으로 읽어요.
+- 가이드 공급·설치·OAuth 연결·실제 IDE 과업은 별도 근거예요. 보호 SSH/Git·중단/재개·13역할 결과 취합은 실제 실행 근거 없이 통과로 표시하지 않아요.
+- 위키 활성/과거/목표/결정 필요를 구별해요. 실행 근거는 versionId/nodeKey/contentHash/docVersion/sourceDigest/retrievedAt로 고정하고 활성 판본이 바뀌어도 과거 근거를 덮어쓰지 않아요. 이 가이드는 새 위키 표준의 활성 승인이 아니에요.
+
+18단계: 1 인터뷰·자료 수집 (requirements) → 2 기본 기획 (basic_planning) → 3 기본 설계 (basic_design) → 4 IA (information_architecture) → 5 페이지 맵 (page_map) → 6 모든 페이지 상세 기능 (page_specification) → 7 스키마 (schema) → 8 목업·와이어프레임 (wireframes) → 9 디자인시스템 초안 (design_system_draft) → 10 전체 컴포넌트·레이아웃 보강 (design_system_complete) → 11 프론트 퍼블리싱 (frontend_publishing) → 12 백엔드 (backend_implementation) → 13 실제 연결 (live_integration) → 14 실제 구조의 합성 데이터 연결 검수 (synthetic_validation) → 15 AI E2E (ai_e2e) → 16 실제 사람 시험 (human_validation) → 17 최종 운영 배포 (production_release) → 18 실서비스 시작·운영 전환 (service_transition)
+
+13역할: 프로젝트 PM (pm) · 기획자 (planner) · 리서치 전문가 (researcher) · 디자이너 (designer) · DBA (dba) · 프론트 개발자 (frontend) · 백엔드 개발자 (backend) · 인프라 엔지니어 (infrastructure) · 보안 전문가 (security) · 비판적인 일반인 고객 (general_customer) · 비판적인 전문가 고객 (expert_customer) · 예산 담당자 (budget) · 작업관리자 (task_manager)
+
+단계별 입력·행동·결과물·완료 기준·담당·근거와 역할별 배정·질문·필수 산출은 번들의 guides/workflow.md · guides/roles.md · guides/ide.md 또는 GET /api/projects/:id/guides/:guideId에서 같은 원천으로 조회해요. 이 경로는 읽기 가이드이며 18단계 실행 전환이 아니에요.
+
+PM은 별도 대화에서 목표·분모·의존성을 조율하고 필요한 전문 역할만 실제 슬롯 안에서 배정해요. 요구 ID·현재 판본·허용/제외 범위·질문·파일별 단일 작성자를 전달해요. 작업관리자는 줄일 일 / 근거 / 바로 할 다음 행동을 제안하며 새 승인자가 아니에요. 중복 작업·불필요한 대기를 줄여도 필수 수용 조건과 실제 사람 시험을 삭제하거나 미완료 개발을 사람에게 전가하지 않아요. 편집 종료·진행 명령·branch/HEAD/remote ref·dirty·배포 판본·원격 검수 분모·unknown 대조·잔여/다음 담당을 확인한 뒤 인계해요. 실제 새 실행 연결이 없으면 nextExecutionRef는 null로 남겨요. 외부 사람/메일/Teams 발송은 별도 허용 범위를 확인해요.
+
 ## 1. 인자 확인
 
 - 호출문 뒤에 `<코드> [이름]` 을 적는다(예 `$dev-start SH 쇼핑허브`). 코드는 대문자 2~5자.
