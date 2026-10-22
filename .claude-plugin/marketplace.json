@@ -10,7 +10,7 @@
       "name": "dev",
       "displayName": "DEV.MADANG",
       "source": "./plugins/madang",
-      "version": "2.10.3",
+      "version": "2.10.4",
       "description": "DEV.MADANG 연결 한 번으로 끝내요 — 로그인으로 인증하고 MCP와 /dev:start · /dev:go · /dev:fix · /dev:next · /dev:runbook 스킬을 설치해요"
     },
     {
