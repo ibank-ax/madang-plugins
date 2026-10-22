@@ -6,7 +6,7 @@ MADANG 제품의 설치 패키지를 배포하는 공개 저장소입니다. DEV
 
 제품별 이름을 같은 `madang` 마켓플레이스에서 관리합니다. DEV.MADANG은 `dev@madang`, DOCS.MADANG은 `docs@madang`으로 독립 설치합니다.
 
-DEV.MADANG의 프로젝트 개발자는 해당 프로젝트의 서버·접속 자격·저장소·도메인·Cloudflare 설정을 관리할 수 있습니다. 직접 관리에는 새 `infra:write`, 환경변수·계정·키 수정에는 `infra:env:write` 동의가 필요합니다. 기존 OAuth 연결은 해당 권한을 선택해 다시 연결하고, PAT는 필요한 권한으로 새로 발급합니다. 기존 `settings:write`는 변경안 제안·웹 승인 범위를 유지합니다. 비밀은 암호화 저장하며 값 대신 저장 유무와 키 이름·판본만 반환합니다.
+DEV.MADANG의 프로젝트 개발자는 해당 프로젝트의 서버·접속 자격·저장소·도메인·Cloudflare 설정을 관리할 수 있습니다. 직접 관리에는 새 `infra:write`, 환경변수·계정·키 수정에는 `infra:env:write` 동의가 필요합니다. 기존 OAuth 연결은 해당 권한을 선택해 다시 연결하고, PAT는 필요한 권한으로 새로 발급합니다. 기존 `settings:write`는 변경안 제안·웹 승인 범위를 유지합니다. 비밀은 암호화 저장하며 값 대신 저장 유무와 키 이름·버전만 반환합니다.
 
 DEV.MADANG과 DOCS.MADANG 모두 **원격 HTTP MCP·OAuth**를 기본으로 제공합니다. DOCS 플러그인은 `https://docs.madang.ai/mcp`로 연결하고 브라우저에서 이메일로 소속 조직을 찾은 뒤 조직 계정으로 로그인·승인합니다. 조직 URL 환경 변수나 Node.js·로컬 브릿지는 필요하지 않습니다. HTTP 미지원 도구는 조직 콘솔의 **기타 도구(stdio)** 안내를 사용합니다.
 
