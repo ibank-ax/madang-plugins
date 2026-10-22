@@ -47,7 +47,7 @@ description: DEV.MADANG 의 실제 흐름 버전에 맞춰 한 호출에 한 단
 - 기존 원문·기존 모델 색인을 보존한 채 새 모델의 별도 색인을 만들어요. 모델·차원·원문 해시·색인 버전별로 저장 영역과 질의/색인 캐시를 분리하고, 같은 1536차원이어도 다른 모델의 벡터를 섞지 않아요. 기존 원문 해시의 완료 색인은 중복 생성하지 않고 실패는 같은 작업·저장 영역에서 멱등 재개해 기존 작업 handle을 회수해요.
 - 새 모델의 실제 반환 모델·1536 응답과 고정한 대상 범위의 색인 완료를 확인해요. 같은 모델·차원의 원격 의미 검색과 권한·삭제·갱신 검색을 검수한 뒤 활성 전환해요. 기존 검수 중 모델에 의존하는 부분만 새 근거로 보완하고 유효한 비모델 근거·과거 모델 검수 이력은 보존해요. 기존 색인을 먼저 지우거나 어휘 검색 결과로 의미 검색 완료를 대신하지 않아요.
 - 실제 선택지가 있는 새 결정은 create_issue_decision에 selectionMode와 recommendation을 함께 넣어요. 단일 선택은 실제 optionKeys 한 개, 복수는 실제 조합, 승인·반려는 실제 행동과 짧은 reason을 적어요. 목록·상세·변경안 카드의 같은 decision/version/대상 추천을 확인하고 사용자 최종 선택과 따로 기록해요.
-- 미결 결정의 추천이 빠졌거나 대상·선택지·판본이 달라졌으면 get_issue_work로 현재 맥락을 읽고 recommend_issue_decision으로 같은 결정에 보완해요. 과거에 없던 추천을 만들어 완료 이력에 넣거나 추천으로 답·승인·작업 완료를 대신하지 않아요. 정보 질문에 실제로 없는 선택지나 행동을 만들지 않아요.
+- 미결 결정의 추천이 빠졌거나 대상·선택지·버전이 달라졌으면 get_issue_work로 현재 맥락을 읽고 recommend_issue_decision으로 같은 결정에 보완해요. 과거에 없던 추천을 만들어 완료 이력에 넣거나 추천으로 답·승인·작업 완료를 대신하지 않아요. 정보 질문에 실제로 없는 선택지나 행동을 만들지 않아요.
 
 ## PM과 전문가 추론 설정
 - 사용자가 고른 모델을 유지해요. PM은 생성·재개 때 현재 엔진·클라이언트·실제 모델이 지원하고 정책상 허용하는 최고 추론 강도를 조회해 실제 설정하고 적용값을 확인해요. 이름이 같은 강도를 서로 다른 클라이언트의 같은 값으로 추정하지 않아요.
@@ -80,7 +80,7 @@ PM은 별도 대화에서 목표·분모·의존성을 조율하고 필요한 �
 3. `record_lifecycle_role_assignment`로 roleId·engine·실제 executionRef·stageKey·status·expectedVersion·requestKey와 handoff를 기록한다. executionKind는 서버가 역할 카탈로그로 결정하므로 인자로 만들지 않는다. handoff에는 pmThreadRef/currentTask/handoffRef/latestInstruction/goal/authorizedScope/priorCompleted/excludedScope/nextTask/nextExecutionRef/files/branchSha/activeCommandCount/editingStopped만 사용하고, 질문·HEAD/remote/dirty는 해당 설명 필드에 정제해 요약한다. 도구 기록 자체를 subagent 실행으로 간주하지 않는다. Claude Code의 Agent, Codex의 협업/subagent, Cursor의 지원된 역할 호출을 실제로 사용한 뒤 결과 보고·evidenceIds·편집 종료·진행 명령·branch/HEAD/remote/dirty를 인계로 취합한다. 도구나 권한이 없으면 실제 호출 미확인을 남기며 성공을 꾸미거나 계정/요금/권한을 우회하지 않는다.
 4. 필요한 구현을 커밋→푸시→허용된 원격 배포→원격 검수하고 같은 이슈에 산출물·실제 environment/revision/caseId/kind의 증거를 연결한다. `report_lifecycle_stage`에 같은 runId/workflowVersion/stageKey, issueId, guideVersion/sourceDigest, **run에 고정된 wikiRefs**, artifactRefs/evidenceIds, 최신 expectedVersion과 UUID requestKey를 보낸다. 응답 유실이면 같은 입력/키로 재조회하며 외부 동작을 새로 실행하지 않는다.
 5. 필수 증거와 역할 결과가 모이면 `complete_lifecycle_stage`로 해당 reportId/evidenceIds를 보내 서비스의 기준별 coverage를 확인한다. progress=100·결정 답·역할 배정만으로 완료를 주장하지 않는다. 16단계의 실제 사람 시험은 사람이 직접 수행·기록한다. 17/18은 기존 허용 범위의 개선 반영·운영 지속 확인이며 새 일괄 승인 버튼·매 단계 새 사람 승인을 만들지 않는다.
-6. 한 단계 결과·남은 필수 개발/검수·사람 판단·재개용 run/stage/version/requestKey/operationRef를 보고해 이번 호출을 마친다. 전체 목표를 위임받았다면 결과를 PM·상위 실행으로 돌려 그 실행이 다음 허용 단계·독립 작업을 계속한다. 실제 사람 시험·권한 확인·보호 입력·사람만 답할 수 있는 결정은 같은 issueId에 필요한 항목만 요청하고, 그 항목에 의존하는 작업만 대기한다. 중단 시 기존 executionRef/assignmentId로 interrupted 인계를 남기고 같은 run에서 재개한다. 다음 실행을 실제 만들지 않았으면 nextExecutionRef는 null이다.
+6. 한 단계 결과·남은 필수 개발/검수·사람 판단·재개용 run/stage/version/requestKey/operationRef를 보고해 이번 호출을 마친다. 전체 목표를 유효하게 위임받았다면 결과를 PM·상위 실행으로 돌려 그 실행이 다음 허용 단계·독립 작업을 계속하며, 이미 승인된 구체 작업에 같은 승인을 반복 요청하지 않는다. 미승인 정책·범위·비용·파괴적 영향의 결정, 실제 사람 Q40/16단계 시험·권한 확인·보호 입력은 같은 issueId에 필요한 항목만 요청하고 해당 의존 작업만 대기한다. 미연결 기능은 미구현으로 남기며 사람 승인이나 구 자격 경로로 대체하지 않는다. 중단 시 기존 executionRef/assignmentId로 interrupted 인계를 남기고 같은 run에서 재개한다. 다음 실행을 실제 만들지 않았으면 nextExecutionRef는 null이다.
 
 ## 2. dev12.v1 다음 지시 받기
 
@@ -128,8 +128,8 @@ PM은 별도 대화에서 목표·분모·의존성을 조율하고 필요한 �
 
 ## 5. 보호된 인프라 입력
 
-- 서버·저장소·환경변수의 장기 비밀은 사람이 웹 보호 입력에 직접 넣는다. 에이전트는 `docs/env/`·환경변수 값·개인키를 읽거나 복사·파일저장·툴 인자로 전달하지 않는다.
-- 기존 연결 ID·자격 버전·환경 역할·정형 operation/receipt만 사용한다. 준비·SSH·Git이 미구현/권한거부/unknown이면 그 상태와 같은 issueId를 보존하고, 구 reveal/free-exec/수동 자격 파일을 대체 경로로 쓰지 않는다.
+- 에이전트는 `docs/env/`·인프라 원문·환경변수 값·초기 비밀번호·개인키를 읽거나 복사·파일저장·툴 인자로 전달하지 않는다. 신규 보호 입력은 일반 웹의 별도 보호 origin·재인증이 아직 미연결이며, 입력 금지 안내·요청 생성/조회/취소만으로 실제 입력·저장이 지원된다고 말하지 않는다.
+- 기존 연결 ID·자격 버전·환경 역할·정형 operation/receipt의 안전한 참조만 사용한다. 서버 내부 키 생성 등록도 실제 SSH·무비밀 빌드 완료와 구별한다. 준비·SSH·Git이 미구현/권한거부/unknown이면 같은 상태·요청·issueId를 보존하고, W02 신규 입력 UI의 미구현을 새 사람 승인으로 대신하거나 구 reveal/free-exec/수동 자격 파일을 대체 경로로 쓰지 않는다. 그 입력에 의존하지 않는 허용 작업은 계속한다.
 - 서버·저장소·도메인·배포 구조의 변경은 기존 유효 범위와 사람 결정 경계를 따른다. 새 비용·파괴적 영향·본인인증의 차이만 구체적으로 연결한다.
 
 ## 6. 디자인시스템(4단계)
@@ -140,7 +140,7 @@ PM은 별도 대화에서 목표·분모·의존성을 조율하고 필요한 �
 ## 7. 한 번에 한 단계
 
 - dev12.v1은 컨펌 요청을 보낸 뒤 개발자가 컨펌할 때까지 다음 단계로 넘어가지 않는다. 다음 단계가 열리면 마당쇠 카드가 오고, 다음 실행이 새 지시를 받는다.
-- dev18.v1도 한 호출에서 한 단계만 수행한다. 단계 결과와 재개 정보를 PM·상위 실행에 돌려주며, 전체 목표를 위임받은 상위 실행은 서비스의 완료 판정·실제 의존 조건을 확인해 다음 허용 단계와 독립 작업을 이어간다.
+- dev18.v1도 한 호출에서 한 단계만 수행한다. 단계 결과와 재개 정보를 PM·상위 실행에 돌려주며, 전체 목표를 유효하게 위임받은 상위 실행은 서비스의 완료 판정·실제 의존 조건을 확인해 다음 허용 단계와 독립 작업을 이어간다. 기존 구체 작업의 승인 범위가 유지되면 반복 승인을 요구하지 않고, 미승인 정책·실제 사람 시험·보안·권한 경계를 넓히지 않는다.
 - 비밀값(비밀번호·키·토큰·환경변수 값)은 어떤 보고·질문·요약·문서에도 적지 않는다. 서버가 거부한다(`SECRET_NOT_ALLOWED`).
 - 지난 보고는 `list_stage_reports({ project, stage?, limit? })`, 전체 현황은 `get_lifecycle({ project })` 로 본다.
 - 런북에 남길 교훈(재발할 함정·새 방법·검증 요령)이 있으면 멈추기 전에 `runbook_propose({ category, op, path, content, reason, evidence, project: "<코드>" })` 로 제안한다 — 사람이 승인해야 반영되고, 런북을 직접 고치지 않는다. 없으면 건너뛴다.
