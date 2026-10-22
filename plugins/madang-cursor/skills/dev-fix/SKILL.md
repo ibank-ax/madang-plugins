@@ -16,9 +16,9 @@ DEV.MADANG 에 등록된 검수 이슈 `<이슈번호>` 를 처리한다. 아래
 - 제공 환경이 **3개**면 `dev`·`staging`·`prod`로 등록하고 `dev` 역할은 `dev`, `qa` 역할은 `staging`, `ops` 역할은 `prod`에 매핑한다.
 - 사용자가 명시한 환경 역할이 위 기본값보다 우선한다. 제공 정보와 기존 등록을 먼저 대조하고 **불명확한 부분만** 묻는다. 매번 세 환경의 입력을 요구하거나, 없는 환경을 복제·가정하거나, 새 자원을 자동으로 만들지 않는다.
 - 이미 저장된 `env` 값과 대상 ID는 임의로 바꾸지 않는다. `test` 같은 기존 별칭도 그대로 유지하고 `environments[].key`에 기존 키, `canonicalEnvironment`에 논리 분류를 둔다. API의 목적 키는 개발 `development`, 검수 `verification`, 운영 `operations`이며 위 `dev`·`qa`·`ops` 역할을 각각 뜻한다.
-- 구조화된 조회는 `get_project_environment_policy({ project })`를 먼저 사용하고, 그 도구가 없으면 `get_project({ project })`의 `environmentPolicy`를 확인한다. REST `GET /api/projects/:id/environment-policy`도 같은 조회 계약이다. 제공 환경(`environments`), 목적별 참조(`roles`), 기존 대상 ID(`targets`의 `serverId`·`deployConfigId`·`connectionId`), 명시 구성의 출처와 근거 판본(`source`), 현재 정책 판본(`version`)을 함께 대조한다. 저장 정책이 없을 때의 기존 등록 기반 추론은 명시 저장과 구별한다.
-- 새 매핑이나 변경은 기존 권한을 가진 웹 로그인 사람 세션의 `PUT /api/projects/:id/environment-policy`에 `{ expectedVersion, configuration }`으로 저장한다. `configuration`에는 제공 환경·목적별 참조·기존 대상 ID·출처(`source.kind/ref/revision`)·`operatingMode`만 둔다. 최초 저장은 `expectedVersion: 0`, 변경은 조회한 현재 `version`을 사용하며 판본 충돌은 다시 조회해 차이를 대조한다. 명시된 사용자 역할은 기본 매핑보다 우선한다. 응답을 같은 조회 경로로 다시 읽어 저장 판본과 실제 참조를 확인하고, 접속 자격은 한 번 저장된 연결 ID를 참조해 역할별로 복제하지 않는다.
-- 전용 환경 정책 API가 **기능 미지원인 설치판으로 확인됐을 때만** 기존 프로젝트 가이드·서버 운영 메모의 비밀 없는 환경 기록을 대체 경로로 사용한다. 전용 API의 권한 거부·판본 충돌·조회 실패를 메모 저장으로 우회하지 않는다. 새 기록이 필요한데 지원되는 등록 경로가 없으면 **매핑 미등록**, 기존 기록을 조회할 수 없으면 **조회 미확인**으로 구별해 보고한다. 이미 명확하게 저장된 매핑을 다시 입력받거나 같은 운영 메모를 중복 등록하지 않으며, 이 기록을 위해 새 권한·승인을 추가로 요구하지 않는다.
+- 구조화된 조회는 `get_project_environment_policy({ project })`를 먼저 사용하고, 그 도구가 없으면 `get_project({ project })`의 `environmentPolicy`를 확인한다. REST `GET /api/projects/:id/environment-policy`도 같은 조회 계약이다. 제공 환경(`environments`), 목적별 참조(`roles`), 기존 대상 ID(`targets`의 `serverId`·`deployConfigId`·`connectionId`), 명시 구성의 출처와 근거 버전(`source`), 현재 정책 버전(`version`)을 함께 대조한다. 저장 정책이 없을 때의 기존 등록 기반 추론은 명시 저장과 구별한다.
+- 새 매핑이나 변경은 기존 권한을 가진 웹 로그인 사람 세션의 `PUT /api/projects/:id/environment-policy`에 `{ expectedVersion, configuration }`으로 저장한다. `configuration`에는 제공 환경·목적별 참조·기존 대상 ID·출처(`source.kind/ref/revision`)·`operatingMode`만 둔다. 최초 저장은 `expectedVersion: 0`, 변경은 조회한 현재 `version`을 사용하며 버전 충돌은 다시 조회해 차이를 대조한다. 명시된 사용자 역할은 기본 매핑보다 우선한다. 응답을 같은 조회 경로로 다시 읽어 저장 버전과 실제 참조를 확인하고, 접속 자격은 한 번 저장된 연결 ID를 참조해 역할별로 복제하지 않는다.
+- 전용 환경 정책 API가 **기능 미지원인 설치판으로 확인됐을 때만** 기존 프로젝트 가이드·서버 운영 메모의 비밀 없는 환경 기록을 대체 경로로 사용한다. 전용 API의 권한 거부·버전 충돌·조회 실패를 메모 저장으로 우회하지 않는다. 새 기록이 필요한데 지원되는 등록 경로가 없으면 **매핑 미등록**, 기존 기록을 조회할 수 없으면 **조회 미확인**으로 구별해 보고한다. 이미 명확하게 저장된 매핑을 다시 입력받거나 같은 운영 메모를 중복 등록하지 않으며, 이 기록을 위해 새 권한·승인을 추가로 요구하지 않는다.
 - 역할 매핑은 실행 권한이나 배포·검수 절차를 넓히지 않는다. 하나의 `prod`를 함께 써도 실제 작업은 해당 대상의 기존 권한·실행 정책과 사용자 지시를 따른다.
 
 ### 신규 프로젝트와 운영 개선
@@ -32,7 +32,7 @@ DEV.MADANG 에 등록된 검수 이슈 `<이슈번호>` 를 처리한다. 아래
 - 기존 단계 ID·번호·보고·결정·첨부·배포 기록을 보존하고 완료 상태를 새 번호로 복제하지 않아요.
 - 운영 중인 서비스 개선은 기존 등록·유효한 결정·근거를 재사용해요. 초기 등록·전체 18단계 재시작·최초 오픈을 다시 요구하지 않아요. 17단계는 검증된 개선 반영, 18단계는 운영 지속 확인으로 읽어요.
 - 가이드 공급·설치·OAuth 연결·실제 IDE 과업은 별도 근거예요. 보호 SSH/Git·중단/재개·13역할 결과 취합은 실제 실행 근거 없이 통과로 표시하지 않아요.
-- 위키 활성/과거/목표/결정 필요를 구별해요. 실행 근거는 versionId/nodeKey/contentHash/docVersion/sourceDigest/retrievedAt로 고정하고 활성 판본이 바뀌어도 과거 근거를 덮어쓰지 않아요. 이 가이드는 새 위키 표준의 활성 승인이 아니에요.
+- 위키 활성/과거/목표/결정 필요를 구별해요. 실행 근거는 versionId/nodeKey/contentHash/docVersion/sourceDigest/retrievedAt로 고정하고 활성 버전이 바뀌어도 과거 근거를 덮어쓰지 않아요. 이 가이드는 새 위키 표준의 활성 승인이 아니에요.
 
 18단계: 1 인터뷰·자료 수집 (requirements) → 2 기본 기획 (basic_planning) → 3 기본 설계 (basic_design) → 4 IA (information_architecture) → 5 페이지 맵 (page_map) → 6 모든 페이지 상세 기능 (page_specification) → 7 스키마 (schema) → 8 목업·와이어프레임 (wireframes) → 9 디자인시스템 초안 (design_system_draft) → 10 전체 컴포넌트·레이아웃 보강 (design_system_complete) → 11 프론트 퍼블리싱 (frontend_publishing) → 12 백엔드 (backend_implementation) → 13 실제 연결 (live_integration) → 14 실제 구조의 합성 데이터 연결 검수 (synthetic_validation) → 15 AI E2E (ai_e2e) → 16 실제 사람 시험 (human_validation) → 17 최종 운영 배포 (production_release) → 18 실서비스 시작·운영 전환 (service_transition)
 
@@ -40,7 +40,7 @@ DEV.MADANG 에 등록된 검수 이슈 `<이슈번호>` 를 처리한다. 아래
 
 단계별 입력·행동·결과물·완료 기준·담당·근거와 역할별 배정·질문·필수 산출은 번들의 guides/workflow.md · guides/roles.md · guides/ide.md 또는 GET /api/projects/:id/guides/:guideId에서 같은 원천으로 조회해요. 이 경로는 읽기 가이드이며 18단계 실행 전환이 아니에요.
 
-PM은 별도 대화에서 목표·분모·의존성을 조율하고 필요한 전문 역할만 실제 슬롯 안에서 배정해요. 요구 ID·현재 판본·허용/제외 범위·질문·파일별 단일 작성자를 전달해요. 작업관리자는 줄일 일 / 근거 / 바로 할 다음 행동을 제안하며 새 승인자가 아니에요. 중복 작업·불필요한 대기를 줄여도 필수 수용 조건과 실제 사람 시험을 삭제하거나 미완료 개발을 사람에게 전가하지 않아요. 편집 종료·진행 명령·branch/HEAD/remote ref·dirty·배포 판본·원격 검수 분모·unknown 대조·잔여/다음 담당을 확인한 뒤 인계해요. 실제 새 실행 연결이 없으면 nextExecutionRef는 null로 남겨요. 외부 사람/메일/Teams 발송은 별도 허용 범위를 확인해요.
+PM은 별도 대화에서 목표·분모·의존성을 조율하고 필요한 전문 역할만 실제 슬롯 안에서 배정해요. 요구 ID·현재 버전·허용/제외 범위·질문·파일별 단일 작성자를 전달해요. 작업관리자는 줄일 일 / 근거 / 바로 할 다음 행동을 제안하며 새 승인자가 아니에요. 중복 작업·불필요한 대기를 줄여도 필수 수용 조건과 실제 사람 시험을 삭제하거나 미완료 개발을 사람에게 전가하지 않아요. 편집 종료·진행 명령·branch/HEAD/remote ref·dirty·배포 버전·원격 검수 분모·unknown 대조·잔여/다음 담당을 확인한 뒤 인계해요. 실제 새 실행 연결이 없으면 nextExecutionRef는 null로 남겨요. 외부 사람/메일/Teams 발송은 별도 허용 범위를 확인해요.
 
 ## 1. 패킷 읽기
 
