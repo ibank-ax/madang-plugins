@@ -82,6 +82,7 @@ PM은 별도 대화에서 목표·분모·의존성을 조율하고 필요한 �
 
 ## 4. 브랜치
 
+- 패키지에 Git helper를 함께 공급하지만 Cursor 자체 OAuth의 자동 Git 전송 연결은 미구현이다. 아래 직접 원격 Git 명령으로 서버 보관 자격을 로컬에 준비하지 않는다. 파일·가이드 공급, 지원된 인증 제공자, 사용자가 제외한 Cursor 실제 검수를 구분해 인계한다.
 - `get_project` 의 정책에서 `branchPattern`(기본 `fix/{issueNo}`)과 저장소 기본 브랜치를 확인한다.
 - `git fetch origin && git switch -c <브랜치> origin/<기본 브랜치>`. 브랜치가 이미 있으면(후속 요청) `git switch <브랜치> && git pull`. 작업 중인 변경이 있으면 stash 할지 먼저 묻는다.
 

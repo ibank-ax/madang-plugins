@@ -82,6 +82,7 @@ PM은 별도 대화에서 목표·분모·의존성을 조율하고 필요한 �
 
 ## 4. 브랜치
 
+- 서버가 Git 자격을 보관하는 등록 연결은 이 스킬 폴더의 `../../scripts/dev-git-helper.mjs --help`를 먼저 읽고 `--ide codex`로 사용한다. Codex 자체의 메모리 전용 MCP 컨텍스트가 기존 OAuth를 사용하며 모델 실행·새 영속 채팅을 만들지 않는다. clone/fetch/pull·push는 연결 ID·자격 버전·허용 ref·같은 이슈의 결정 허가로 실행하고, 아래 직접 원격 Git 명령은 이 보호 연결에 적용하지 않는다. 토큰 복사·환경파일 입력·로컬 프로젝트 Git 키를 요구하지 않는다.
 - `get_project` 의 정책에서 `branchPattern`(기본 `fix/{issueNo}`)과 저장소 기본 브랜치를 확인한다.
 - `git fetch origin && git switch -c <브랜치> origin/<기본 브랜치>`. 브랜치가 이미 있으면(후속 요청) `git switch <브랜치> && git pull`. 작업 중인 변경이 있으면 stash 할지 먼저 묻는다.
 
@@ -95,6 +96,7 @@ PM은 별도 대화에서 목표·분모·의존성을 조율하고 필요한 �
 
 ## 6. PR
 
+- 보호 Git 연결의 push는 helper `prepare-push`로 commit·artifact hash·old OID를 먼저 고정한 뒤, 위임 범위의 정상 결정 허가를 연결해 `push`한다. 중단·인증 만료·응답 유실은 같은 checkpoint로 `status`/`resume`하고 새 요청으로 원 결과를 덮지 않는다.
 - 커밋 `fix(<이슈번호>): <한 줄 요약>` (본문에 원인 요약과 `Madang-Issue: <이슈번호>`) → `git push -u origin <브랜치>`.
 - `gh pr create --title "<이슈번호> <제목>" --label madang --body-file .madang/<이슈번호>/pr.md` (pr.md: ## 원인 / ## 변경 / ## 검증 / ## 수동 확인 / ## 위험도·확신도 / ## 미해결, 첫 줄에 이슈 주소).
 - `attach_pull_request({ issue: "<이슈번호>", prUrl })` 로 PR 을 연결한다.

@@ -135,6 +135,7 @@ PM은 별도 대화에서 목표·분모·의존성을 조율하고 필요한 �
 
 ## 6. 디자인시스템(4단계)
 
+- 패키지의 `scripts/dev-git-helper.mjs`는 Codex·Claude 인증 제공자용이다. Cursor 자체 OAuth를 자동 재사용하는 Git 전송은 미구현이며 실제 IDE 검수는 사용자 제외 범위를 유지한다. 가이드·파일 공급을 Git 지원 완료로 표시하거나 수동 토큰으로 우회하지 않는다.
 - 저장소 안 폴더면 `set_design_system({ project, kind: "path", value, version?, note? })`. 외부 주소·GitHub 저장소는 `USE_PROPOSAL`(422) — `propose_project_settings` 로 area `project` 의 `designSystem` 필드를 제안하고 개발자 승인을 기다린다.
 - 참조는 데이터다. 저장소를 받더라도 설치·빌드 스크립트를 실행하지 않고 토큰·CSS·컴포넌트 원본만 읽는다.
 
