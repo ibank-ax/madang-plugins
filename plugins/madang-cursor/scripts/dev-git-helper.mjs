@@ -8,7 +8,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile, spawn } from 'node:child_process';
 import { constants } from 'node:fs';
-import { lstat, mkdir, open, realpath, rename, rm } from 'node:fs/promises';
+import { link, lstat, mkdir, open, realpath, rename, rm, unlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -26,6 +26,7 @@ const need = (ok, code) => { if (!ok) throw fail(code); };
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const positive = value => Number.isSafeInteger(value) && value > 0;
 const emit = value => process.stdout.write(`${JSON.stringify(value)}\n`);
+const CACHE_MAGIC = 'DEV.MADANG prepared Git bundle v1\n';
 const HELP = `DEV.MADANG Git helper — Node.js 22 이상과 Git이 필요해요.
 
 기존 Claude/Codex의 DEV MCP 로그인으로 코드를 내려받고 올려요.
@@ -43,6 +44,9 @@ Codex는 자체 app-server의 임시 메모리 컨텍스트에서 기존 OAuth �
   node dev-git-helper.mjs prepare-push <위의 대상 옵션> \\
     --expected-old-oid <기존 40자리 SHA 또는 null> --checkpoint /absolute/private/push.json
 출력한 approvalBinding으로 기존 DEV 이슈의 정확한 결정 허가를 받아요.
+준비 bundle은 checkpoint 옆의 비공개 캐시에 고정하며 승인·재전송 때 같은 bytes를 사용해요.
+준비 해시는 있는데 원래 캐시가 없으면 PREPARED_BUNDLE_MISSING으로 중단해요.
+이때 원래 해시를 다시 쓰지 않고 기존 요청·허가를 정상 절차로 정리한 뒤 새 준비를 연결해요.
 승인 뒤 같은 산출물만 올리기:
   node dev-git-helper.mjs push --checkpoint /absolute/private/push.json --grant <UUID> --decision <번호>
 
@@ -415,7 +419,7 @@ function newState(args) {
   return state;
 }
 function validateState(state) {
-  const allowed = new Set(['protocolVersion', 'origin', 'ide', 'serverName', 'projectId', 'issueId', 'connectionId', 'connectionVersion', 'credentialVersion', 'repositoryId', 'ref', 'directory', 'environment', 'purpose', 'kind', 'localAction', 'requestKey', 'phase', 'operationId', 'artifactId', 'expectedOldOid', 'commitSha', 'artifactSha256', 'bundleSize', 'artifactReceipt', 'grantId', 'decisionId', 'operationRequest', 'operation', 'resumeRequest', 'resumeReceipt', 'download', 'localBeforeSha']);
+  const allowed = new Set(['protocolVersion', 'origin', 'ide', 'serverName', 'projectId', 'issueId', 'connectionId', 'connectionVersion', 'credentialVersion', 'repositoryId', 'ref', 'directory', 'environment', 'purpose', 'kind', 'localAction', 'requestKey', 'phase', 'operationId', 'artifactId', 'expectedOldOid', 'commitSha', 'artifactSha256', 'bundleSize', 'bundleCacheCleanup', 'artifactReceipt', 'grantId', 'decisionId', 'operationRequest', 'operation', 'resumeRequest', 'resumeReceipt', 'download', 'localBeforeSha']);
   need(record(state) && Object.keys(state).every(k => allowed.has(k)) && state.protocolVersion === 1 && originOf(state.origin) === state.origin
     && ['codex', 'claude'].includes(state.ide) && [state.projectId, state.issueId, state.connectionVersion, state.credentialVersion, state.repositoryId].every(positive)
     && UUID.test(state.connectionId) && UUID.test(state.requestKey) && validRef(state.ref) && path.isAbsolute(state.directory)
@@ -425,6 +429,10 @@ function validateState(state) {
   if (state.kind === 'git.push') need(UUID.test(state.artifactId) && UUID.test(state.operationId) && (state.expectedOldOid === null || SHA.test(state.expectedOldOid)), 'CHECKPOINT_REJECTED');
   if (state.commitSha !== undefined) need(SHA.test(state.commitSha), 'CHECKPOINT_REJECTED');
   if (state.artifactSha256 !== undefined) need(HASH.test(state.artifactSha256) && positive(state.bundleSize) && state.bundleSize <= MAX_BUNDLE, 'CHECKPOINT_REJECTED');
+  if (state.bundleCacheCleanup !== undefined) need(record(state.bundleCacheCleanup)
+    && Object.keys(state.bundleCacheCleanup).every(k => ['status', 'errorCode'].includes(k))
+    && ['removed', 'missing', 'retained'].includes(state.bundleCacheCleanup.status)
+    && (state.bundleCacheCleanup.errorCode === undefined || /^[A-Z][A-Z0-9_]{1,79}$/.test(state.bundleCacheCleanup.errorCode)), 'CHECKPOINT_REJECTED');
   return state;
 }
 async function git(directory, args, outputLimit = MAX_JSON) {
@@ -465,21 +473,126 @@ function summary(state) {
   return { protocolVersion: 1, phase: state.phase, kind: state.kind, requestKey: state.requestKey,
     ...(state.operationId ? { operationId: state.operationId } : {}), ...(state.operation ? { operation: state.operation } : {}),
     ...(state.commitSha ? { commitSha: state.commitSha } : {}), ...(state.download ? { download: state.download } : {}),
+    ...(state.bundleCacheCleanup ? { bundleCacheCleanup: state.bundleCacheCleanup } : {}),
     ...(state.kind === 'git.push' && state.artifactSha256 ? { approvalBinding: { operationId: state.operationId, artifactId: state.artifactId,
       repositoryId: state.repositoryId, connectionId: state.connectionId, credentialVersion: state.credentialVersion, ref: state.ref, commitSha: state.commitSha,
       expectedOldOid: state.expectedOldOid, artifactSha256: state.artifactSha256, bundleSize: state.bundleSize } } : {}) };
+}
+function preparedCachePaths(state, file) {
+  need(UUID.test(state.artifactId), 'CHECKPOINT_REJECTED');
+  const ready = `${file}.${state.artifactId}.prepared-bundle`;
+  return { ready, pending: `${ready}.pending` };
+}
+function preparedCacheBinding(state, commitSha) {
+  return { origin: state.origin, ide: state.ide, serverName: state.serverName ?? null, directory: state.directory,
+    requestKey: state.requestKey, operationId: state.operationId, artifactId: state.artifactId, projectId: state.projectId,
+    issueId: state.issueId, connectionId: state.connectionId, connectionVersion: state.connectionVersion, credentialVersion: state.credentialVersion,
+    repositoryId: state.repositoryId, environment: state.environment, purpose: state.purpose, ref: state.ref, expectedOldOid: state.expectedOldOid, commitSha };
+}
+async function syncParent(file) {
+  const directory = await open(path.dirname(file), constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+  try { await directory.sync(); } finally { await directory.close(); }
+}
+async function cacheInfo(file, links = 1) {
+  const info = await lstat(file);
+  need(info.isFile() && !info.isSymbolicLink() && info.nlink === links && (info.mode & 0o7777) === 0o600
+    && (process.getuid === undefined || info.uid === process.getuid()) && info.size <= MAX_BUNDLE + 8192, 'PREPARED_BUNDLE_UNSAFE');
+  return info;
+}
+async function readPreparedCache(file, binding, links = 1) {
+  let handle;
+  try { handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW); } catch { throw fail('PREPARED_BUNDLE_UNSAFE'); }
+  let container, bytes;
+  try {
+    const info = await handle.stat();
+    need(info.isFile() && info.nlink === links && (info.mode & 0o7777) === 0o600
+      && (process.getuid === undefined || info.uid === process.getuid()) && info.size <= MAX_BUNDLE + 8192, 'PREPARED_BUNDLE_UNSAFE');
+    container = await handle.readFile();
+    const end = container.indexOf(Buffer.from('\n\n'));
+    need(end > CACHE_MAGIC.length && end <= 8192 && container.subarray(0, CACHE_MAGIC.length).toString('utf8') === CACHE_MAGIC, 'PREPARED_BUNDLE_CORRUPT');
+    let metadata; try { metadata = JSON.parse(container.subarray(CACHE_MAGIC.length, end).toString('utf8')); } catch { throw fail('PREPARED_BUNDLE_CORRUPT'); }
+    need(record(metadata) && Object.keys(metadata).sort().join(',') === 'binding,protocolVersion,sha256,sizeBytes'
+      && metadata.protocolVersion === 1 && HASH.test(metadata.sha256) && positive(metadata.sizeBytes) && metadata.sizeBytes <= MAX_BUNDLE
+      && JSON.stringify(metadata.binding) === JSON.stringify(binding) && container.length - end - 2 === metadata.sizeBytes, 'PREPARED_BUNDLE_CORRUPT');
+    bytes = Buffer.from(container.subarray(end + 2));
+    need(digest(bytes) === metadata.sha256, 'PREPARED_BUNDLE_CORRUPT');
+    try { fullBundle(bytes, binding.commitSha, binding.ref); } catch { throw fail('PREPARED_BUNDLE_CORRUPT'); }
+    return { bytes, metadata, identity: { dev: info.dev, ino: info.ino, size: info.size } };
+  } catch (error) { bytes?.fill(0); if (error.safeCode) throw error; throw fail('PREPARED_BUNDLE_UNSAFE'); }
+  finally { container?.fill(0); await handle.close(); }
+}
+async function existingCacheInfo(file) {
+  try { return await lstat(file); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+}
+/** A pending file is published with link(2), so an existing cache is never replaced.
+ * A crash after link but before unlink leaves exactly these two known names on one inode.
+ * That narrow state is validated and completed before any bytes are accepted.
+ */
+async function recoverPreparedCache(state, file, commitSha) {
+  const paths = preparedCachePaths(state, file), binding = preparedCacheBinding(state, commitSha);
+  let ready = await existingCacheInfo(paths.ready), pending = await existingCacheInfo(paths.pending);
+  if (!ready && !pending) return null;
+  if (ready && pending) {
+    need(ready.dev === pending.dev && ready.ino === pending.ino, 'PREPARED_BUNDLE_CONFLICT');
+    await cacheInfo(paths.ready, 2); await cacheInfo(paths.pending, 2);
+    const checked = await readPreparedCache(paths.ready, binding, 2); checked.bytes.fill(0);
+    const latest = await cacheInfo(paths.pending, 2);
+    need(latest.dev === ready.dev && latest.ino === ready.ino, 'PREPARED_BUNDLE_CONFLICT');
+    await syncParent(paths.ready); await unlink(paths.pending); await syncParent(paths.ready); pending = null; ready = await cacheInfo(paths.ready);
+  }
+  if (!ready && pending) {
+    await cacheInfo(paths.pending);
+    const checked = await readPreparedCache(paths.pending, binding); checked.bytes.fill(0);
+    try { await link(paths.pending, paths.ready); } catch (error) { if (error.code === 'EEXIST') throw fail('PREPARED_BUNDLE_CONFLICT'); throw error; }
+    const linked = await cacheInfo(paths.ready, 2), staged = await cacheInfo(paths.pending, 2);
+    need(linked.dev === staged.dev && linked.ino === staged.ino, 'PREPARED_BUNDLE_CONFLICT');
+    await syncParent(paths.ready); await unlink(paths.pending); await syncParent(paths.ready);
+  }
+  return readPreparedCache(paths.ready, binding);
+}
+async function publishPreparedCache(state, file, commitSha, bytes) {
+  const paths = preparedCachePaths(state, file), metadata = { protocolVersion: 1, binding: preparedCacheBinding(state, commitSha), sha256: digest(bytes), sizeBytes: bytes.length };
+  let handle;
+  try { handle = await open(paths.pending, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600); }
+  catch (error) { throw fail(error.code === 'EEXIST' ? 'PREPARED_BUNDLE_CONFLICT' : 'PREPARED_BUNDLE_UNSAFE'); }
+  try { await handle.writeFile(Buffer.from(`${CACHE_MAGIC}${JSON.stringify(metadata)}\n\n`)); await handle.writeFile(bytes); await handle.sync(); }
+  finally { await handle.close(); }
+  // No checkpoint advertises the artifact hash until the immutable cache is durably published.
+  await syncParent(paths.pending);
+  return recoverPreparedCache(state, file, commitSha);
 }
 async function preparePush(state, file) {
   need(await gitText(state.directory, ['rev-parse', '--show-object-format']) === 'sha1', 'SHA1_REPOSITORY_REQUIRED');
   need(await gitText(state.directory, ['symbolic-ref', 'HEAD']) === state.ref, 'LOCAL_REF_MISMATCH');
   const commit = await gitText(state.directory, ['rev-parse', '--verify', 'HEAD^{commit}']); need(SHA.test(commit), 'LOCAL_COMMIT_REQUIRED');
-  const bytes = await git(state.directory, ['bundle', 'create', '-', state.ref], MAX_BUNDLE);
+  if (state.commitSha) need(state.commitSha === commit, 'LOCAL_ARTIFACT_CHANGED');
+  let cached = await recoverPreparedCache(state, file, commit), generated;
   try {
-    fullBundle(bytes, commit, state.ref);
-    if (state.artifactSha256) need(state.commitSha === commit && state.artifactSha256 === digest(bytes), 'LOCAL_ARTIFACT_CHANGED');
-    else { state.commitSha = commit; state.artifactSha256 = digest(bytes); state.bundleSize = bytes.length; state.phase = 'awaiting_existing_grant'; await storeCheckpoint(file, state); }
-    return bytes;
-  } catch (error) { bytes.fill(0); throw error; }
+    if (!cached) {
+      need(!state.artifactSha256, 'PREPARED_BUNDLE_MISSING');
+      generated = await git(state.directory, ['bundle', 'create', '-', state.ref], MAX_BUNDLE); fullBundle(generated, commit, state.ref);
+      cached = await publishPreparedCache(state, file, commit, generated);
+    }
+    need(cached, 'PREPARED_BUNDLE_MISSING');
+    need(await gitText(state.directory, ['symbolic-ref', 'HEAD']) === state.ref
+      && await gitText(state.directory, ['rev-parse', '--verify', 'HEAD^{commit}']) === commit, 'LOCAL_ARTIFACT_CHANGED');
+    if (state.artifactSha256) need(state.artifactSha256 === cached.metadata.sha256 && state.bundleSize === cached.metadata.sizeBytes, 'PREPARED_BUNDLE_CORRUPT');
+    else { state.commitSha = commit; state.artifactSha256 = cached.metadata.sha256; state.bundleSize = cached.metadata.sizeBytes; state.phase = 'awaiting_existing_grant'; await storeCheckpoint(file, state); }
+    return cached.bytes;
+  } catch (error) { cached?.bytes.fill(0); throw error; }
+  finally { generated?.fill(0); }
+}
+async function cleanupPreparedCache(state, file) {
+  let cached;
+  try {
+    cached = await recoverPreparedCache(state, file, state.commitSha);
+    if (!cached) return { status: 'missing' };
+    need(cached.metadata.sha256 === state.artifactSha256 && cached.metadata.sizeBytes === state.bundleSize, 'PREPARED_BUNDLE_CORRUPT');
+    const ready = preparedCachePaths(state, file).ready, info = await cacheInfo(ready);
+    need(info.dev === cached.identity.dev && info.ino === cached.identity.ino && info.size === cached.identity.size, 'PREPARED_BUNDLE_CONFLICT');
+    await unlink(ready); await syncParent(ready); return { status: 'removed' };
+  } catch (error) { return { status: 'retained', errorCode: /^[A-Z][A-Z0-9_]{1,79}$/.test(error.safeCode ?? '') ? error.safeCode : 'PREPARED_BUNDLE_CLEANUP_UNAVAILABLE' }; }
+  finally { cached?.bytes.fill(0); }
 }
 async function waitOperation(state, file, api, waitSeconds) {
   const deadline = Date.now() + waitSeconds * 1000;
@@ -561,7 +674,9 @@ async function run(args) {
     }
     if (state.kind === 'git.push') {
       need(['push', 'resume'].includes(args.command), 'CHECKPOINT_KIND_MISMATCH');
-      const bundle = await preparePush(state, file);
+      // The server already owns the immutable bytes after its upload receipt. Reconciliation
+      // depends on the original operation, not on the local checkout or a retained cache.
+      const bundle = state.artifactReceipt ? null : await preparePush(state, file);
       try {
         if (!state.grantId) { need(UUID.test(args.grant ?? '') && positive(Number(args.decision)), 'EXISTING_GRANT_REQUIRED'); state.grantId = args.grant; state.decisionId = Number(args.decision); await storeCheckpoint(file, state); }
         if (args.grant) need(args.grant === state.grantId && Number(args.decision) === state.decisionId, 'CHECKPOINT_GRANT_CHANGED');
@@ -569,6 +684,7 @@ async function run(args) {
           credentialVersion: state.credentialVersion, repositoryId: state.repositoryId, ref: state.ref, commitSha: state.commitSha,
           expectedOldOid: state.expectedOldOid, artifactSha256: state.artifactSha256, grantId: state.grantId };
         if (!state.artifactReceipt) {
+          need(Buffer.isBuffer(bundle), 'PREPARED_BUNDLE_MISSING');
           // Same artifact ID and exact bytes recover an interrupted upload; no fresh upload key is created.
           const receipt = await api.request(`/api/projects/${state.projectId}/git-artifacts`, { method: 'POST', bundle, payload });
           need(receipt.artifactId === state.artifactId && receipt.operationId === state.operationId && receipt.repositoryId === state.repositoryId
@@ -576,7 +692,7 @@ async function run(args) {
             && receipt.sizeBytes === state.bundleSize && Number.isFinite(Date.parse(receipt.expiresAt)), 'UPLOAD_RECEIPT_REJECTED');
           state.artifactReceipt = { ...payload, sha256: receipt.sha256, sizeBytes: receipt.sizeBytes, expiresAt: receipt.expiresAt }; state.phase = 'artifact_published'; await storeCheckpoint(file, state);
         }
-      } finally { bundle.fill(0); }
+      } finally { bundle?.fill(0); }
     } else need(['clone', 'fetch', 'pull', 'resume'].includes(args.command), 'CHECKPOINT_KIND_MISMATCH');
     if (!state.operationRequest) { state.operationRequest = operationRequest(state); state.phase = 'operation_prepared'; await storeCheckpoint(file, state); }
     if (!state.operation) {
@@ -602,7 +718,10 @@ async function run(args) {
     }
     await waitOperation(state, file, api, waitSeconds);
     if (state.operation.status === 'succeeded') {
-      if (state.kind === 'git.push') { state.phase = 'remote_complete'; await storeCheckpoint(file, state); }
+      if (state.kind === 'git.push') {
+        state.phase = 'remote_complete'; await storeCheckpoint(file, state);
+        if (state.bundleCacheCleanup?.status !== 'removed') { state.bundleCacheCleanup = await cleanupPreparedCache(state, file); await storeCheckpoint(file, state); }
+      }
       else await downloadAndApply(state, file, api);
     }
     emit(summary(state));
@@ -614,7 +733,9 @@ export async function main(argv = process.argv.slice(2)) {
   try { await run(argsOf([...argv])); }
   catch (error) {
     const code = typeof error.safeCode === 'string' && /^[A-Z][A-Z0-9_]{1,79}$/.test(error.safeCode) ? error.safeCode : 'HELPER_FAILED';
-    emit({ ok: false, errorCode: code, nextAction: ['IDE_REAUTH_REQUIRED', 'IDE_AUTH_STORE_UNAVAILABLE'].includes(code) ? 'IDE에서 기존 DEV 연결을 다시 인증한 뒤 같은 checkpoint로 재개하세요.' : '같은 checkpoint에서 상태를 조회하고 재개하세요.' });
+    emit({ ok: false, errorCode: code, nextAction: code === 'PREPARED_BUNDLE_MISSING'
+      ? '준비 당시 bundle 캐시가 없어요. 기존 요청·허가를 정상 절차로 정리한 뒤 새 준비를 연결하세요.'
+      : ['IDE_REAUTH_REQUIRED', 'IDE_AUTH_STORE_UNAVAILABLE'].includes(code) ? 'IDE에서 기존 DEV 연결을 다시 인증한 뒤 같은 checkpoint로 재개하세요.' : '같은 checkpoint에서 상태를 조회하고 재개하세요.' });
     process.exitCode = code === 'HELPER_INTERRUPTED' ? 130 : 1;
   }
 }
