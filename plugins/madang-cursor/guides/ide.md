@@ -1,5 +1,5 @@
 # 개발 가이드 · dev18.v1
-> guideVersion: 2.11.4 · sourceDigest: 93b5d299cd4e2e2857682bab77a5b753e674dd74a745a43b0e5b289e07c5a0e5
+> guideVersion: 2.11.5 · sourceDigest: a47cd059f69cb1a1349dc468727389d03a9928151fb0f07af24367e40d7332e3
 
 - 프로젝트의 실제 workflowVersion·runId를 조회해요. dev12.v1의 구 번호와 dev18.v1의 안정 단계 키를 섞지 않고, 새 18단계 실행은 버전을 지원하는 서버의 run API로 진행해요.
 - 기존 단계 ID·번호·보고·결정·첨부·배포 기록을 보존하고 완료 상태를 새 번호로 복제하지 않아요.
