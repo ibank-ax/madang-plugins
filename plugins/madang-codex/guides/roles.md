@@ -1,5 +1,5 @@
 # 개발 가이드 · dev18.v1
-> guideVersion: 2.10.4 · sourceDigest: c797a8a0f59b5a7737dad439c70415238ae9a8ccf9481205dd1f74b57287a1c0
+> guideVersion: 2.10.4 · sourceDigest: 454fb020f39ee68030ef082b4e9d4479842f48f2f152826dc2b3670e061ac572
 
 - dev18.v1은 배포된 읽기 가이드예요. 현재 단계 실행·보고·전이는 dev12.v1 12단계이며 새 18단계 run 실행은 지원하지 않아요.
 - 기존 단계 ID·번호·보고·결정·첨부·배포 기록을 보존하고 완료 상태를 새 번호로 복제하지 않아요.
