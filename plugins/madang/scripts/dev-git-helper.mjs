@@ -40,14 +40,14 @@ Codex는 자체 app-server의 임시 메모리 컨텍스트에서 기존 OAuth �
     --repository 1 --ref refs/heads/codex/check --directory /absolute/workspace \\
     --environment prod --checkpoint /absolute/private/clone.json
 
-편집·커밋 후 승인할 산출물을 고정하기:
+편집·커밋 후 승인할 결과물을 고정하기:
   node dev-git-helper.mjs prepare-push <위의 대상 옵션> \\
     --expected-old-oid <기존 40자리 SHA 또는 null> --checkpoint /absolute/private/push.json
 출력한 approvalBinding으로 기존 DEV 이슈의 정확한 결정 허가를 받아요.
 준비 bundle은 checkpoint 옆의 비공개 캐시에 고정하며 승인·재전송 때 같은 bytes를 사용해요.
 준비 해시는 있는데 원래 캐시가 없으면 PREPARED_BUNDLE_MISSING으로 중단해요.
 이때 원래 해시를 다시 쓰지 않고 기존 요청·허가를 정상 절차로 정리한 뒤 새 준비를 연결해요.
-승인 뒤 같은 산출물만 올리기:
+승인 뒤 같은 결과물만 올리기:
   node dev-git-helper.mjs push --checkpoint /absolute/private/push.json --grant <UUID> --decision <번호>
 
 원격 변경 내려받기: clone과 같은 대상 옵션에 fetch 또는 pull을 사용하고 새 checkpoint를 지정해요.
