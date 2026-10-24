@@ -14,7 +14,7 @@ madang MCP 를 쓰는 에이전트가 **항상** 지키는 규칙이다. 절차�
 
 ## 비밀값
 
-- 비밀번호·키·토큰·환경변수 값은 어떤 보고·질문·요약·문서·커밋에도 적지 않는다(서버가 `SECRET_NOT_ALLOWED` 로 거부한다). `docs/env/`·환경 파일·개인키·인프라 원문을 읽거나 복사·로컬 저장하지 않고, 도구가 암호화 저장한다고 해도 그 원문을 모델 입력이나 `put_env_document`·`onboard_project_server` 등의 도구 인자로 전달하지 않는다.
+- 비밀번호·키·토큰·환경변수 값은 어떤 보고·질문·요약·문서·커밋에도 적지 않는다(서버가 `SECRET_NOT_ALLOWED` 로 거부한다). `docs/env/`·환경 파일·개인키·인프라 원문을 읽거나 복사·로컬 저장하지 않고, 그 원문을 모델 입력이나 도구 인자로 전달하지 않는다. `put_env_document`·`update_env_values`·`save_project_repo_token`·`save_project_cloudflare_token`과 `onboard_project_server`의 `password` 같은 구 원문 입력은 암호화 저장 경로가 아니며 값과 무관하게 `LEGACY_SECRET_CHANNEL_DISABLED` 로 거부된다.
 - 토큰이 든 저장소 주소를 파일·커밋에 남기지 않는다. 초기 비밀번호를 받거나 로컬 개인키를 준비하는 방법으로 보호 입력·실행 경계를 우회하지 않는다. 기존 키의 원문 대신 연결 ID·자격 버전·요청 ID와 상태를 사용한다.
 
 ## 프로젝트 인프라 관리
@@ -22,8 +22,8 @@ madang MCP 를 쓰는 에이전트가 **항상** 지키는 규칙이다. 절차�
 - 먼저 해당 프로젝트의 연결·환경 역할·보호 입력 요청을 조회해 requestId·connectionId·자격 버전·status·version·expiresAt 등 비밀 없는 참조를 대조한다. `get_project_settings`·`list_env_keys`에서도 필요한 대상 ID·이름·저장 여부·버전만 사용하며 비밀 원문 조회는 요청하지 않는다.
 - 이미 연결된 대상은 현재 권한과 버전이 맞는 서버 보호 실행의 정형 작업으로만 사용한다. 준비·SSH·Git·배포의 실제 결과는 같은 요청/작업 ID로 다시 읽고, 등록·요청 생성·키 생성 성공을 로그인·빌드·실행 완료로 간주하지 않는다. 서버 내부 키 생성으로 지원되는 native 등록도 안전한 참조와 상태만 사용한다.
 - `scripts/dev-git-helper.mjs`와 사용 안내를 패키지에 함께 공급하지만 현재 helper의 인증 제공자는 Codex·Claude이며 Cursor 자체 OAuth의 자동 Git 전송 연결은 미구현이다. 공급·가이드와 Cursor 실제 Git 지원·검수 완료를 구분한다. 지원되지 않는 인증 저장 형식을 추정하거나 토큰 복사·수동 DEV 환경변수로 대체하지 않는다. 사용자가 제외한 Cursor 로그인·실제 IDE 검수를 다시 시작하지 않는다.
-- 신규 보호 입력의 일반 웹 화면은 현재 별도 보호 origin·사람 재인증과 미연결이다. `/secure/projects/:id/inputs/:requestId`는 원문 입력 폼이 아니며, `secureEntryRef=PROTECTED_INGRESS_NOT_CONNECTED`와 요청 ID·상태 조회를 실제 입력·저장 완료로 표시하지 않는다. broker 내부 후보 저장 계약도 일반 웹 입력 기능의 구현 근거가 아니다.
-- 새 비밀이 필요한데 지원되는 보호 입력이 미연결이면 W02 신규 입력 UI의 미구현 범위와 해당 의존 작업을 남긴다. 이를 새 사람 승인 요청으로 대체하거나 인프라 문서·초기 비밀번호·로컬 키·구 reveal/free-exec를 우회 경로로 제공하지 않는다. 기존 안전한 참조로 가능한 허용·독립 작업은 계속한다.
+- 신규 보호 입력은 일반 웹과 다른 별도 보호 origin(`PROTECTED_INPUT_ORIGIN`)의 보호 입력 수신기에서 사람이 독립 재인증 뒤 처리한다. 일반 웹 `/secure/projects/:id/inputs/:requestId`는 원문 입력 폼이 아니라 요청 ID·상태와 보호 주소·비공유 기기 안내만 보여 준다. 요청 조회의 `secureEntryRef=PROTECTED_INPUT_ORIGIN`·`secureEntryUrl`은 사람이 비공유 기기에서 직접 열 입력 위치이며 에이전트가 열거나 대신 입력하지 않는다. 사람이 실제로 1회 저장해 확인한 근거는 아직 없으므로 요청 생성·주소 발급·상태 조회를 입력·저장·검증 완료로 표시하지 않는다. `stored`는 후보 저장까지만 뜻하며 같은 requestId의 후보 검증·활성화 결과와 구별한다. `secureEntryRef=PROTECTED_INGRESS_NOT_CONNECTED`면 그 설치판의 보호 입력은 미연결이다. broker 내부 후보 저장 계약도 일반 웹 입력 기능의 구현 근거가 아니다.
+- 새 비밀이 필요하면 `create_protected_input_request`로 요청하고 사람에게 요청 ID와 웹 요청 화면을 안내한다. 보호 입력이 미연결이거나 대상 목적이 지원되지 않으면 W02 보호 입력의 미연결 범위와 해당 의존 작업을 남긴다. 이를 새 사람 승인 요청으로 대체하거나 인프라 문서·초기 비밀번호·로컬 키·구 reveal/free-exec를 우회 경로로 제공하지 않는다. 기존 안전한 참조로 가능한 허용·독립 작업은 계속한다.
 - 도구·프로젝트·실행 정책의 실제 권한을 지킨다. 미지원·권한 거부·결과 불명을 같은 요청과 issueId에 구별해 남기며, 등록·수정 권한으로 기존 비밀 열람 권한을 얻지 않는다. 플랫폼 전역 연동·다른 프로젝트·역할 정책을 바꾸거나 이미 승인된 범위를 넓히지 않는다.
 
 ## 환경 프로필과 역할 매핑
