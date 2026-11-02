@@ -1,12 +1,12 @@
 ---
 name: dev-fix
-description: DEV.MADANG 검수 이슈 하나를 절차대로 처리해요 — 패킷 읽기 → 브랜치 → 수정 → 테스트 → PR → 결과 보고. 이슈 번호(SH-0042 같은)를 주면 시작해요.
+description: DEV.MADANG 검수 이슈 하나를 절차대로 처리해요 — 패킷 읽기 → 브랜치 → 수정 → 검증 → PR → 현재 정책에 따른 배포·근거·완료 보고. 이슈 번호(SH-0042 같은)를 주면 시작해요.
 disable-model-invocation: true
 ---
 
 # /dev-fix <이슈번호>
 
-DEV.MADANG 에 등록된 검수 이슈 `<이슈번호>` 를 처리한다. 아래 순서를 지키고, 확신이 없으면 멈추고 사람에게 물어본다.
+DEV.MADANG 에 등록된 검수 이슈 `<이슈번호>` 를 처리한다. 아래 순서를 지키고, 확신이 없으면 자료·고정 위키·전문가 근거를 보완하고, 현재 프로젝트 권한과 사용자 과업 범위의 개발용 판단은 메인 에이전트가 결정 이유를 같은 이슈에 기록한다. 사람 게이트에 의존하는 항목만 사람에게 요청하고 대기한다.
 
 ## 환경 프로필과 역할 매핑
 
@@ -63,6 +63,8 @@ DEV.MADANG 에 등록된 검수 이슈 `<이슈번호>` 를 처리한다. 아래
 
 PM은 기존 별도 대화에서 목표·분모·의존성을 조율해요. 작업관리자는 모든 작업에 필수로 관여하고 기존 서브에이전트를 재사용하며 없을 때만 실제 슬롯 안에서 배정해요. 나머지 전문가는 필요에 따라 배정하고 명령마다 새 세션·호출을 만들지 않아요. 시작 목표·완료 조건·재사용 근거·다음 결과와 예상 점검 시점을 확인하고 묶음 종료나 정체 징후 때 진행·중복·방법을 점검해요. 완료 조건 충족·유효 산출·장애 해결 없이 같은 실패·진단·계획·시험이 반복되면 원인을 짚고 중단·근거 재사용·방법 변경·필요한 병렬화 또는 근거가 갖춰진 즉시 완료 판정을 제안해요. 살아 있는 원격 작업의 정상 대기와 구별하며 timeout만으로 재실행하지 않아요. 재시험은 관련 변경·원인 수정·새 위험·미해결 근거의 구체적 이유가 있을 때 영향 범위만 확인해요. 예산관리자는 기존 점검 흐름에서 같은 계정·같은 주간 한도창의 usedPercent·remainingPercent·resetAt과 시간차 관측을 재사용해 72시간 내 소진이 전망될 때만 관여해 과다 토큰·긴 컨텍스트·중복 역할·시험을 줄이는 PM 권고를 내요. 표본·계측이 부족하면 전망·비용을 미확인으로 남기고 정상시 상시 에이전트를 호출하지 않아요. 프로젝트 초기 인프라 발주안에는 토큰 위험과 별개로 관여해 실제 수요·가용성·월비용 대비 CPU·RAM·스토리지·서버 수와 초기 규모·확장 조건을 검토해요. 필요한 보안·백업·가용성을 삭제하거나 최저 사양을 강제하거나 새 구매를 실행하지 않아요. 두 역할은 기존 서브에이전트·점검 시점·조사 근거를 재사용하고 진행·방법과 사용량·성과 대비 낭비를 나눠 맡아요. 시간·모델·토큰·유료 비용은 실제 자료·출처만 사용하고 미지원은 미확인으로 남기며 추정을 확정하거나 중복 합산하지 않아요. 사용자 예산 상한은 지키고 없으면 새 금액 상한·자동 차단·승인 요구를 만들지 않아요. 사용자 선택 모델·PM의 지원된 최고 추론과 전문가 강도에 대한 PM 판단을 유지해요. 관여한 역할은 정체/낭비 근거 → 중단·재사용·변경할 일 → 바로 할 다음 행동으로 짧게 반환하고 PM이 반영하거나 기존 진행·인계 기록에 구체적 예외 이유를 남겨요. 새 cron·승인자·대시보드·폴링 없이 반복 문서·전체 suite·불필요한 제한·승인·대기·확대를 줄여요. 원 요구·분모·필수 수용 조건·실제 사람 시험을 삭제하거나 미완료 개발을 사람에게 넘겨 완료율을 올리지 않고 확보한 유효 근거는 즉시 수용해요. 요구 ID·현재 버전·허용/제외 범위·질문·파일별 단일 작성자를 전달하고 편집 종료·진행 명령·branch/HEAD/remote ref·dirty·배포 버전·원격 검수 분모·unknown 대조·잔여/다음 담당을 확인해 인계해요. 실제 새 실행 연결이 없으면 nextExecutionRef는 null로 남기며 외부 사람/메일/Teams 발송은 별도 허용 범위를 확인해요.
 
+프로젝트를 확인한 뒤 `/dev-collaborate`의 세션 등록·수신함·회신 절차를 함께 적용한다. 사용자가 맡긴 범위의 검토·결정은 사람 또는 프로젝트 메인 에이전트가 처리하고, 기존 결정·단계·결과 보고 ID를 통신 메시지에 연결한다. 토큰·세션 인증 원문을 전달하지 않는다.
+
 ## 1. 패킷 읽기
 
 - `get_issue_packet({ issue: "<이슈번호>" })` — 재현 절차·기대·실제·콘솔·네트워크·요소 정보가 들어 있다.
@@ -99,14 +101,31 @@ PM은 기존 별도 대화에서 목표·분모·의존성을 조율해요. 작�
 - 커밋 `fix(<이슈번호>): <한 줄 요약>` (본문에 원인 요약과 `Madang-Issue: <이슈번호>`) → `git push -u origin <브랜치>`.
 - `gh pr create --title "<이슈번호> <제목>" --label madang --body-file .madang/<이슈번호>/pr.md` (pr.md: ## 원인 / ## 변경 / ## 검증 / ## 수동 확인 / ## 위험도·확신도 / ## 미해결, 첫 줄에 이슈 주소).
 - `attach_pull_request({ issue: "<이슈번호>", prUrl })` 로 PR 을 연결한다.
+- 연결 응답의 `deployPolicy`·`deployPolicyReasonCode`·`approvalId`를 읽는다. 정책이 null이면 사유를 보고 같은 요청을 재조회한다. autonomous 연결은 별도 승인 없이, operational 연결은 같은 head의 미결 승인을 재사용하거나 merge_deploy 승인 요청으로 이어진다. 승인 대기 중 외부에서 직접 머지하지 않는다. PR이 있으면 이 연결만 사용하고 별도 `request_deployment`로 같은 배포를 중복 요청하지 않는다.
 
-## 7. 보고
+## 7. 완료 전에 결과 보고
 
-- `report_fix_result({ issue: "<이슈번호>", outcome, summary, root_cause, changes: [{ file, what }], verification: { commands, passed, notes }, manual_check, pr_url, open_questions, risk, confidence })` — outcome 은 `fixed` · `partial` · `needs_human` · `cannot_reproduce` · `not_a_bug`.
-- 재현이 안 되거나 원인이 불확실하면 **고친 척하지 말고** `needs_human` 으로 보고하고 무엇을 확인했는지 적는다. 요구가 모호해도 추측으로 범위를 넓히지 않는다.
+- PR 연결 직후, 배포·근거 제출·자동 완료 또는 `update_issue_status` done보다 먼저 `report_fix_result({ issue: "<이슈번호>", outcome, summary, root_cause, changes: [{ file, what }], verification: { commands, passed, notes }, manual_check, pr_url, open_questions, risk, confidence })`로 현재 결과를 저장한다. outcome은 `fixed`·`partial`·`needs_human`·`cannot_reproduce`·`not_a_bug`다. 아직 원격 검수하지 않은 항목은 통과로 쓰지 않는다.
+- `prAttachment.attached=false`·`reasonCode=FORBIDDEN_SCOPE`이면 보고는 저장된 상태다. 같은 보고를 다시 제출하지 말고 재인가 후 PR 연결만 이어 간다. 재현이 안 되거나 원인이 불확실하면 `needs_human`으로 무엇을 확인했는지 보고한다.
+
+## 8. 배포·근거·완료
+
+- `deploy:write`가 없거나 배포 도구가 보이지 않으면 배포 의존 작업을 멈추고 「이 연결에는 배포 권한(deploy:write)이 없어요. /me/mcp에서 연결을 다시 인가하고 '배포 요청·실행'에 동의해 주세요」라고 보고한다. refresh로 권한이 추가되지 않으며 `infra_exec`·직접 SSH·로컬 키·일반 shell로 우회하지 않는다.
+- `autonomous`: 허용된 검증 → 머지 → 실행 가능하면 `request_deployment`, 실행 불가면 `record_agent_deployment` start → 허용된 표준 진입점 배포 → 같은 배포의 finish → 원격 검수 → `submit_issue_evidence` 순서다. 비사람 pass 근거는 현재 developer·같은 원천/task/case/kind/env/revision 검증을 통과하면 `agent_auto`로 자동 수락된다. 실제 readback과 인정 배포 결과를 확인한다.
+- `operational`: PR이 있으면 위 PR 연결의 `approvalId`로 사람 승인 1회를 기다린다. PR이 없을 때만 `request_deployment`를 사용하고 `get_deployment`·`list_deployments`로 같은 요청을 확인한다. 실행 가능하면 승인 head 머지→배포를 서버가 잇고, 실행 불가면 `approved_for_agent` 확인 뒤 start → 허용된 표준 진입점 배포 → finish로 기록한다. 승인 bundle의 고정 근거와 승인된 이슈 집합·env·검증 commit(서버 확인 별칭 포함)·비사람 kind에 맞는 배포 후 근거는 새 작업이어도 재검증 뒤 `approval_bundle`로 수락된다.
+- start·finish는 같은 `deploymentId`에 기록하고 서로 다른 `requestKey`를 사용한다. 같은 phase의 재시도만 같은 키·같은 입력을 유지한다. `phase: "start"`는 실행 선점, `phase: "finish"`는 실제 결과 기록이며 succeeded에는 component별 readback이 필요하다. 실제 관측 revision을 그대로 제출하고 작업 revision과 다르면 서버가 검증한 PR 머지·후손 별칭으로 대조한다. 이미 `mergeFollowup`이 배포를 만들었으면 그 deploymentId를 먼저 읽고 새 배포를 만들지 않는다.
+- 배포 기록의 start에는 `startedAt`이 필수다. 기존 `deploymentId`의 finish에서 `startedAt`을 생략하면 저장된 시작 시각을 쓰고, 입력하면 저장값과 같아야 한다. deploymentId 없이 이미 끝난 배포를 기록할 때는 실제 `startedAt`·`finishedAt`을 그대로 쓰고 관측은 지금 한다. 24시간 제한은 `observedAt`에만 적용하며 `startedAt ≤ finishedAt ≤ observedAt ≤ DB 현재시각+120초` 순서를 지킨다. 성공 readback은 component별 또는 `all`로 제출하며 보고된 component가 모두 commit과 일치하면 readback 인정 조건을 충족한다. 실제 관측을 바꾸어 적지 않는다. env 하나에 여러 목적이 매핑되면 `purpose`를 함께 보내고, 현재 환경 정책의 작업·배포 목적과 대조한다.
+- 수락된 근거가 최신 필수 case×kind 커버리지를 채우면 서버가 작업을 자동 done으로 바꾼다. 작업 상태를 수동으로 단계별 전이할 필요는 없다. 자동 수락 실패는 제출을 재시도하기 전에 submitted·reasonCode와 원천 검증 조건을 확인한다. 승인 뒤 finish 기록 전에 제출된 비사람 근거는 인정 배포 성공 반영 때 승인 범위와 원천을 다시 검증해 수락하므로 같은 근거를 중복 제출하지 않는다.
+- 완료 후속은 서버의 `nextAction`·`reasonCode`를 따른다. `await_human_completion` + `deployment_health_unconfirmed`는 운영 역할 env의 관문을 통과했지만 health가 미확인인 상태다. 이때 에이전트는 `update_issue_status` done을 호출하지 않고 사람 완료 대기와 이유를 보고한다. 운영 역할 env가 아닌 배포는 `request_deployment` + `operations_deployment_required`이므로 현재 매핑의 운영 배포로 이어 간다. 공유 env는 operations 역할 매핑을 대조하고, 매핑 미해석 시 선언 purpose만 사용해 verification을 운영으로 추정하지 않는다. `resolve_blockers`는 실제 관문 차단 사유를 해소한 뒤 같은 이슈를 재조회한다.
+- human 근거의 제출·수락은 사람이 직접 한다. plan_artifact의 design/static·artifact 환경 제한은 그대로다. human 필수 작업을 에이전트가 취소하거나 미완료 작업을 지워 완료 조건을 줄이지 않는다.
+- 자율 배포는 같은 이슈의 인정 배포, 모든 작업 done·최신 필수 근거, operation 종결을 확인한 뒤 `update_issue_status({ issue: "<이슈번호>", status: "done" })`를 호출한다. 작업 0건은 작업 이력이 전혀 없다는 뜻이다. 승인 후 배포는 허용 출처의 operations 배포·health·동일 관문 통과 뒤 서버가 자동 완료한다. 당시 autonomous 정책으로 실행된 agent_policy 인정 배포도 소급 무효화하지 않는다. blocked·unknown·failed 사유를 보고하며 배포 성공만으로 완료를 주장하지 않는다.
+
+## 9. 완료 후 추가 기록
+
+- 이슈 완료로 수정 요청이 닫힌 뒤에는 `report_fix_result`를 다시 호출하지 않고 `add_issue_comment`로 추가 검수 결과·잔여 사항을 남긴다. 요구가 모호해도 추측으로 범위를 넓히지 않는다.
 - 개발 위키에 남길 교훈(재발할 함정·원인 패턴·새 검증 방법)이 있으면 `runbook_propose({ category, op, path, content, reason, evidence: ["<이슈번호>"], project })` 로 제안한다 — 사람이 승인해야 반영되고, 개발 위키를 직접 고치지 않는다. 없으면 건너뛴다.
 
 ## 하지 말 것
 - 새 의존성 추가 금지 · 기본 브랜치 직접 push·force push 금지.
-- 이슈 상태를 `update_issue_status` 로 직접 바꾸지 말 것(`start_fix` · `attach_pull_request` · `report_fix_result` 로만).
+- 자율 배포의 완료 관문을 통과한 done 처리 외에 `update_issue_status`로 수정·PR 흐름을 우회하지 말 것(`start_fix`·`attach_pull_request`·`report_fix_result` 사용).
 - 서버 접속정보·토큰을 코드나 커밋에 넣지 말 것 · `.madang/` 커밋 금지.
