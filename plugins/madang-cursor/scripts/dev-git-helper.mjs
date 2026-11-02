@@ -40,14 +40,15 @@ Codex는 자체 app-server의 임시 메모리 컨텍스트에서 기존 OAuth �
     --repository 1 --ref refs/heads/codex/check --directory /absolute/workspace \\
     --environment prod --checkpoint /absolute/private/clone.json
 
-편집·커밋 후 승인할 결과물을 고정하기:
+편집·커밋 후 게시할 결과물을 고정하기:
   node dev-git-helper.mjs prepare-push <위의 대상 옵션> \\
     --expected-old-oid <기존 40자리 SHA 또는 null> --checkpoint /absolute/private/push.json
-출력한 approvalBinding으로 기존 DEV 이슈의 정확한 결정 허가를 받아요.
-준비 bundle은 checkpoint 옆의 비공개 캐시에 고정하며 승인·재전송 때 같은 bytes를 사용해요.
+준비 bundle은 checkpoint 옆의 비공개 캐시에 고정하며 게시·재전송 때 같은 bytes를 사용해요.
 준비 해시는 있는데 원래 캐시가 없으면 PREPARED_BUNDLE_MISSING으로 중단해요.
 이때 원래 해시를 다시 쓰지 않고 기존 요청·허가를 정상 절차로 정리한 뒤 새 준비를 연결해요.
-승인 뒤 같은 결과물만 올리기:
+현재 서버 정책이 autonomous이면 사람 허가 없이 같은 결과물을 올려요:
+  node dev-git-helper.mjs push --checkpoint /absolute/private/push.json
+operational이면 출력한 approvalBinding에 맞는 기존 DEV 이슈 결정 허가를 연결해요:
   node dev-git-helper.mjs push --checkpoint /absolute/private/push.json --grant <UUID> --decision <번호>
 
 원격 변경 내려받기: clone과 같은 대상 옵션에 fetch 또는 pull을 사용하고 새 checkpoint를 지정해요.
@@ -57,6 +58,8 @@ fetch는 dev 원격 추적 참조를 갱신하고 pull은 깨끗한 작업공간
 상태 조회: node dev-git-helper.mjs status --checkpoint /absolute/private/push.json
 중단·결과 불명 재개: node dev-git-helper.mjs resume --checkpoint /absolute/private/push.json
 checkpoint의 요청 키·대상·SHA는 유지해요. 새 요청으로 결과 불명을 덮지 않아요.
+업로드 응답 유실은 같은 artifact 영수증을 먼저 조회해요. 운영전환 뒤에도 저장된 요청은 바꾸지 않아요.
+아직 operation 요청을 만들지 않았다면 회수한 업로드 영수증에 맞는 운영 허가만 연결할 수 있어요.
 인증 만료·회수 시 기존 IDE에서 DEV 연결을 정상 재인증한 뒤 같은 명령을 다시 실행해요.
 helper는 refresh token을 회전하거나 추가 로그인·pair·토큰 복사를 요구하지 않아요.
 
@@ -307,6 +310,7 @@ export class CodexGitBridge {
   async request(route, { method, json, bundle, payload, binary }) {
     const match = /^\/api\/projects\/([1-9][0-9]*)\/(.+)$/.exec(route); need(match, 'API_PATH_REJECTED');
     const projectId = Number(match[1]), suffix = match[2]; need(positive(projectId), 'API_PATH_REJECTED');
+    if (suffix === 'git-policy' && method === 'GET' && !bundle && !binary) return (await this.transfer(projectId, { action: 'policy_get' })).value;
     if (suffix === 'operations' && method === 'POST' && !bundle && !binary) return (await this.transfer(projectId, { action: 'operation_create', operation: json })).value.value;
     const operation = /^operations\/([a-f0-9-]{36})(\/resume|\/git-bundle)?$/.exec(suffix);
     if (operation && UUID.test(operation[1])) {
@@ -419,7 +423,7 @@ function newState(args) {
   return state;
 }
 function validateState(state) {
-  const allowed = new Set(['protocolVersion', 'origin', 'ide', 'serverName', 'projectId', 'issueId', 'connectionId', 'connectionVersion', 'credentialVersion', 'repositoryId', 'ref', 'directory', 'environment', 'purpose', 'kind', 'localAction', 'requestKey', 'phase', 'operationId', 'artifactId', 'expectedOldOid', 'commitSha', 'artifactSha256', 'bundleSize', 'bundleCacheCleanup', 'artifactReceipt', 'grantId', 'decisionId', 'operationRequest', 'operation', 'resumeRequest', 'resumeReceipt', 'download', 'localBeforeSha']);
+  const allowed = new Set(['protocolVersion', 'origin', 'ide', 'serverName', 'projectId', 'issueId', 'connectionId', 'connectionVersion', 'credentialVersion', 'repositoryId', 'ref', 'directory', 'environment', 'purpose', 'kind', 'localAction', 'requestKey', 'phase', 'operationId', 'artifactId', 'expectedOldOid', 'commitSha', 'artifactSha256', 'bundleSize', 'bundleCacheCleanup', 'artifactRequest', 'artifactReceipt', 'grantId', 'decisionId', 'operationRequest', 'operation', 'resumeRequest', 'resumeReceipt', 'download', 'localBeforeSha']);
   need(record(state) && Object.keys(state).every(k => allowed.has(k)) && state.protocolVersion === 1 && originOf(state.origin) === state.origin
     && ['codex', 'claude'].includes(state.ide) && [state.projectId, state.issueId, state.connectionVersion, state.credentialVersion, state.repositoryId].every(positive)
     && UUID.test(state.connectionId) && UUID.test(state.requestKey) && validRef(state.ref) && path.isAbsolute(state.directory)
@@ -429,6 +433,14 @@ function validateState(state) {
   if (state.kind === 'git.push') need(UUID.test(state.artifactId) && UUID.test(state.operationId) && (state.expectedOldOid === null || SHA.test(state.expectedOldOid)), 'CHECKPOINT_REJECTED');
   if (state.commitSha !== undefined) need(SHA.test(state.commitSha), 'CHECKPOINT_REJECTED');
   if (state.artifactSha256 !== undefined) need(HASH.test(state.artifactSha256) && positive(state.bundleSize) && state.bundleSize <= MAX_BUNDLE, 'CHECKPOINT_REJECTED');
+  need(state.grantId === undefined && state.decisionId === undefined || UUID.test(state.grantId) && positive(state.decisionId), 'CHECKPOINT_REJECTED');
+  if (state.artifactRequest !== undefined) {
+    need(record(state.artifactRequest), 'CHECKPOINT_REJECTED');
+    const expected = pushArtifactRequest(state, state.artifactRequest.grantId ?? null);
+    need(Object.keys(state.artifactRequest).length === Object.keys(expected).length
+      && Object.keys(expected).every(key => state.artifactRequest[key] === expected[key])
+      && (state.artifactRequest.grantId === undefined || state.artifactRequest.grantId === state.grantId), 'CHECKPOINT_REJECTED');
+  }
   if (state.bundleCacheCleanup !== undefined) need(record(state.bundleCacheCleanup)
     && Object.keys(state.bundleCacheCleanup).every(k => ['status', 'errorCode'].includes(k))
     && ['removed', 'missing', 'retained'].includes(state.bundleCacheCleanup.status)
@@ -452,15 +464,48 @@ function fullBundle(bytes, sha, ref) {
   need(lines.filter(l => !l.startsWith('@')).length === 1 && lines.filter(l => !l.startsWith('@'))[0] === `${sha} ${ref}`
     && lines.every(l => !l.startsWith('-') && (!l.startsWith('@') || l === '@object-format=sha1')), 'FULL_BUNDLE_REQUIRED');
 }
-function operationRequest(state) {
+export function operationRequest(state) {
   const parameters = { repositoryId: state.repositoryId, ref: state.ref };
   const request = { requestKey: state.requestKey, expectedVersion: state.connectionVersion, issueId: state.issueId, kind: state.kind,
     environment: state.environment, purpose: state.purpose, targetId: state.connectionId, parameters };
   if (state.kind === 'git.push') {
     Object.assign(parameters, { commitSha: state.commitSha, expectedOldOid: state.expectedOldOid, artifactId: state.artifactId, artifactSha256: state.artifactSha256 });
-    Object.assign(request, { operationId: state.operationId, artifactRevision: state.commitSha, grantId: state.grantId, decisionId: state.decisionId });
+    Object.assign(request, { operationId: state.operationId, artifactRevision: state.commitSha,
+      ...(state.grantId ? { grantId: state.grantId, decisionId: state.decisionId } : {}) });
   }
   return request;
+}
+export function pushArtifactRequest(state, grantId = state.grantId) {
+  return { artifactId: state.artifactId, operationId: state.operationId, issueId: state.issueId, connectionId: state.connectionId,
+    credentialVersion: state.credentialVersion, repositoryId: state.repositoryId, ref: state.ref, commitSha: state.commitSha,
+    expectedOldOid: state.expectedOldOid, artifactSha256: state.artifactSha256, ...(grantId ? { grantId } : {}) };
+}
+export async function resolvePushAuthorization(state, args, readPolicy) {
+  const supplied = args.grant !== undefined || args.decision !== undefined;
+  if (supplied) need(UUID.test(args.grant ?? '') && positive(Number(args.decision)), 'EXISTING_GRANT_REQUIRED');
+  // A saved create request or unobserved upload must be replayed byte-for-byte. Current
+  // server policy still authorizes every mutation; a cached client policy grants nothing.
+  if (state.operationRequest || state.artifactRequest && !state.artifactReceipt || state.grantId) {
+    if (supplied) need(args.grant === state.grantId && Number(args.decision) === state.decisionId, 'CHECKPOINT_GRANT_CHANGED');
+    if (state.operationRequest || state.artifactRequest && !state.artifactReceipt) return state.grantId ? { grantId: state.grantId, decisionId: state.decisionId } : {};
+  }
+  const policy = await readPolicy();
+  need(record(policy) && ['autonomous', 'operational'].includes(policy.policy)
+    && policy.requiresGrant === (policy.policy === 'operational'), 'GIT_POLICY_UNCONFIRMED');
+  if (policy.requiresGrant) need(state.grantId || supplied, 'EXISTING_GRANT_REQUIRED');
+  return state.grantId ? { grantId: state.grantId, decisionId: state.decisionId }
+    : supplied ? { grantId: args.grant, decisionId: Number(args.decision) } : {};
+}
+export function pushArtifactReceipt(state, payload, receipt) {
+  need(record(receipt) && receipt.artifactId === state.artifactId && receipt.operationId === state.operationId && receipt.repositoryId === state.repositoryId
+    && receipt.commitSha === state.commitSha && receipt.ref === state.ref && receipt.sha256 === state.artifactSha256
+    && receipt.sizeBytes === state.bundleSize && Number.isFinite(Date.parse(receipt.expiresAt)), 'UPLOAD_RECEIPT_REJECTED');
+  return { ...payload, sha256: receipt.sha256, sizeBytes: receipt.sizeBytes, expiresAt: receipt.expiresAt };
+}
+export async function recoverPushArtifactReceipt(state, api) {
+  if (state.artifactReceipt || !state.artifactRequest) return state.artifactReceipt ?? null;
+  try { return pushArtifactReceipt(state, state.artifactRequest, await api.request(`/api/projects/${state.projectId}/git-artifacts/${state.artifactId}`)); }
+  catch (error) { if (error.safeCode === 'NOT_FOUND') return null; throw error; }
 }
 function operationView(value, state) {
   need(record(value) && UUID.test(value.operationId) && value.projectId === state.projectId && value.issueId === state.issueId
@@ -577,7 +622,7 @@ async function preparePush(state, file) {
     need(await gitText(state.directory, ['symbolic-ref', 'HEAD']) === state.ref
       && await gitText(state.directory, ['rev-parse', '--verify', 'HEAD^{commit}']) === commit, 'LOCAL_ARTIFACT_CHANGED');
     if (state.artifactSha256) need(state.artifactSha256 === cached.metadata.sha256 && state.bundleSize === cached.metadata.sizeBytes, 'PREPARED_BUNDLE_CORRUPT');
-    else { state.commitSha = commit; state.artifactSha256 = cached.metadata.sha256; state.bundleSize = cached.metadata.sizeBytes; state.phase = 'awaiting_existing_grant'; await storeCheckpoint(file, state); }
+    else { state.commitSha = commit; state.artifactSha256 = cached.metadata.sha256; state.bundleSize = cached.metadata.sizeBytes; state.phase = 'prepared'; await storeCheckpoint(file, state); }
     return cached.bytes;
   } catch (error) { cached?.bytes.fill(0); throw error; }
   finally { generated?.fill(0); }
@@ -674,23 +719,20 @@ async function run(args) {
     }
     if (state.kind === 'git.push') {
       need(['push', 'resume'].includes(args.command), 'CHECKPOINT_KIND_MISMATCH');
+      const recovered = await recoverPushArtifactReceipt(state, api);
+      if (recovered && !state.artifactReceipt) { state.artifactReceipt = recovered; state.phase = 'artifact_published'; await storeCheckpoint(file, state); }
       // The server already owns the immutable bytes after its upload receipt. Reconciliation
       // depends on the original operation, not on the local checkout or a retained cache.
       const bundle = state.artifactReceipt ? null : await preparePush(state, file);
       try {
-        if (!state.grantId) { need(UUID.test(args.grant ?? '') && positive(Number(args.decision)), 'EXISTING_GRANT_REQUIRED'); state.grantId = args.grant; state.decisionId = Number(args.decision); await storeCheckpoint(file, state); }
-        if (args.grant) need(args.grant === state.grantId && Number(args.decision) === state.decisionId, 'CHECKPOINT_GRANT_CHANGED');
-        const payload = { artifactId: state.artifactId, operationId: state.operationId, issueId: state.issueId, connectionId: state.connectionId,
-          credentialVersion: state.credentialVersion, repositoryId: state.repositoryId, ref: state.ref, commitSha: state.commitSha,
-          expectedOldOid: state.expectedOldOid, artifactSha256: state.artifactSha256, grantId: state.grantId };
+        const authorization = await resolvePushAuthorization(state, args, () => api.request(`/api/projects/${state.projectId}/git-policy`));
+        if (authorization.grantId && !state.grantId) { Object.assign(state, authorization); await storeCheckpoint(file, state); }
         if (!state.artifactReceipt) {
           need(Buffer.isBuffer(bundle), 'PREPARED_BUNDLE_MISSING');
+          if (!state.artifactRequest) { state.artifactRequest = pushArtifactRequest(state); await storeCheckpoint(file, state); }
           // Same artifact ID and exact bytes recover an interrupted upload; no fresh upload key is created.
-          const receipt = await api.request(`/api/projects/${state.projectId}/git-artifacts`, { method: 'POST', bundle, payload });
-          need(receipt.artifactId === state.artifactId && receipt.operationId === state.operationId && receipt.repositoryId === state.repositoryId
-            && receipt.commitSha === state.commitSha && receipt.ref === state.ref && receipt.sha256 === state.artifactSha256
-            && receipt.sizeBytes === state.bundleSize && Number.isFinite(Date.parse(receipt.expiresAt)), 'UPLOAD_RECEIPT_REJECTED');
-          state.artifactReceipt = { ...payload, sha256: receipt.sha256, sizeBytes: receipt.sizeBytes, expiresAt: receipt.expiresAt }; state.phase = 'artifact_published'; await storeCheckpoint(file, state);
+          const receipt = await api.request(`/api/projects/${state.projectId}/git-artifacts`, { method: 'POST', bundle, payload: state.artifactRequest });
+          state.artifactReceipt = pushArtifactReceipt(state, state.artifactRequest, receipt); state.phase = 'artifact_published'; await storeCheckpoint(file, state);
         }
       } finally { bundle?.fill(0); }
     } else need(['clone', 'fetch', 'pull', 'resume'].includes(args.command), 'CHECKPOINT_KIND_MISMATCH');
@@ -733,7 +775,9 @@ export async function main(argv = process.argv.slice(2)) {
   try { await run(argsOf([...argv])); }
   catch (error) {
     const code = typeof error.safeCode === 'string' && /^[A-Z][A-Z0-9_]{1,79}$/.test(error.safeCode) ? error.safeCode : 'HELPER_FAILED';
-    emit({ ok: false, errorCode: code, nextAction: code === 'PREPARED_BUNDLE_MISSING'
+    emit({ ok: false, errorCode: code, nextAction: code === 'GIT_POLICY_UNCONFIRMED'
+      ? '현재 서버의 Git 게시 정책을 확인하지 못했어요. 같은 checkpoint를 보존하고 정책 조회를 다시 확인하세요.'
+      : code === 'PREPARED_BUNDLE_MISSING'
       ? '준비 당시 bundle 캐시가 없어요. 기존 요청·허가를 정상 절차로 정리한 뒤 새 준비를 연결하세요.'
       : ['IDE_REAUTH_REQUIRED', 'IDE_AUTH_STORE_UNAVAILABLE'].includes(code) ? 'IDE에서 기존 DEV 연결을 다시 인증한 뒤 같은 checkpoint로 재개하세요.' : '같은 checkpoint에서 상태를 조회하고 재개하세요.' });
     process.exitCode = code === 'HELPER_INTERRUPTED' ? 130 : 1;
