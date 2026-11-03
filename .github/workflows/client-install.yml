@@ -1,0 +1,39 @@
+name: Public client install and capability verification
+
+on:
+  push:
+    branches: [codex/plugin-client-install-1104]
+  pull_request:
+    paths:
+      - .github/workflows/client-install.yml
+      - scripts/client-install.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  client:
+    name: ${{ matrix.client }} public install / capability
+    strategy:
+      fail-fast: false
+      matrix:
+        client: [codex, claude, cursor]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Native public client only; isolated HOME, no auth or MCP invocation
+        run: python3 scripts/client-install.py --client '${{ matrix.client }}'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-client-${{ matrix.client }}
+          if-no-files-found: error
+          path: results/client-install/${{ matrix.client }}/
