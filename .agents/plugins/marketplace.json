@@ -55,6 +55,19 @@
         "authentication": "ON_USE"
       },
       "category": "Productivity"
+    },
+    {
+      "name": "asset",
+      "version": "1.0.0",
+      "source": {
+        "source": "local",
+        "path": "./plugins/asset/codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
     }
   ]
 }
