@@ -1,0 +1,9 @@
+{
+  "name": "aio",
+  "displayName": "AIO.MADANG",
+  "version": "0.1.0",
+  "description": "AIO.MADANG의 기존 AI 답변을 본인 권한으로 읽어요. 첫 사용 때 조직 로그인과 명시적인 연결 승인이 필요해요.",
+  "author": {
+    "name": "iBank AX 솔루션사업본부"
+  }
+}
