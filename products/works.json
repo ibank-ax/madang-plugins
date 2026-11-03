@@ -1,0 +1,10 @@
+{
+  "version": "0.1.0",
+  "sourceCommit": "d2557a08fef7eef0d06a90781f8506e98e959cc6",
+  "sourceRepository": "ibank-ax/works.madang.ai",
+  "platforms": [
+    "claude",
+    "codex",
+    "cursor"
+  ]
+}

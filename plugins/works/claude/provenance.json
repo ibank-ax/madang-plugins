@@ -1,0 +1,22 @@
+{
+  "version": "0.1.0",
+  "sourceCommit": "d2557a08fef7eef0d06a90781f8506e98e959cc6",
+  "sourceRepository": "ibank-ax/works.madang.ai",
+  "platforms": [
+    "claude",
+    "codex",
+    "cursor"
+  ],
+  "platform": "claude",
+  "oauth": {
+    "id": "works",
+    "transport": "http",
+    "url": "https://works.madang.ai/mcp",
+    "issuer": "https://works.madang.ai",
+    "tokenEndpointAuthMethod": "none",
+    "scopes": [
+      "works:read"
+    ],
+    "sensitiveScopes": []
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "works": {
+      "url": "https://works.madang.ai/mcp",
+      "type": "http"
+    }
+  }
+}

@@ -25,6 +25,13 @@
       "displayName": "UX.MADANG",
       "source": "./plugins/ux/cursor",
       "description": "UX.MADANG 프로젝트·리포트·어휘 읽기와 원격 OAuth MCP 연결"
+    },
+    {
+      "name": "works",
+      "version": "0.1.0",
+      "displayName": "WORKS.MADANG",
+      "source": "./plugins/works/cursor",
+      "description": "WORKS.MADANG 업무·프로젝트 읽기와 원격 OAuth MCP 연결"
     }
   ]
 }
