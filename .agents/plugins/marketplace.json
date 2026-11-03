@@ -42,6 +42,45 @@
         "authentication": "ON_USE"
       },
       "category": "Productivity"
+    },
+    {
+      "name": "works",
+      "version": "0.1.0",
+      "source": {
+        "source": "local",
+        "path": "./plugins/works/codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "asset",
+      "version": "1.0.0",
+      "source": {
+        "source": "local",
+        "path": "./plugins/asset/codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "aio",
+      "source": {
+        "source": "local",
+        "path": "./plugins/aio/codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity",
+      "version": "0.1.0"
     }
   ]
 }

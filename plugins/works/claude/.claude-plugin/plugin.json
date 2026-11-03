@@ -1,0 +1,9 @@
+{
+  "name": "works",
+  "version": "0.1.0",
+  "description": "WORKS.MADANG 업무·프로젝트 읽기와 원격 OAuth MCP 연결",
+  "author": {
+    "name": "iBank AX 솔루션사업본부"
+  },
+  "displayName": "WORKS.MADANG"
+}
