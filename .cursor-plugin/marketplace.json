@@ -39,6 +39,13 @@
       "version": "1.0.0",
       "source": "./plugins/asset/cursor",
       "description": "조직 계정으로 허용한 에셋 읽기 검색과 원격 OAuth MCP 연결"
+    },
+    {
+      "name": "aio",
+      "displayName": "AIO.MADANG",
+      "source": "./plugins/aio/cursor",
+      "version": "0.1.0",
+      "description": "AIO.MADANG의 기존 AI 답변을 본인 권한으로 읽어요. 첫 사용 때 조직 로그인과 명시적인 연결 승인이 필요해요."
     }
   ]
 }
