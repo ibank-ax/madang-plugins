@@ -7,6 +7,7 @@ The only settings touched belong to a newly created, job-private client HOME.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -43,6 +44,39 @@ def digest(data: bytes) -> str:
 def require(value: object, code: str) -> None:
     if value is not True:
         raise VerificationError(code)
+
+
+def expected_integrity(integrity: object) -> tuple[str, bytes]:
+    require(isinstance(integrity, str), "PACKAGE_SRI_REQUIRED")
+    match = re.fullmatch(r"(sha512|sha256)-([A-Za-z0-9+/]+={0,2})", integrity)
+    require(match is not None, "PACKAGE_SRI_INVALID")
+    try:
+        expected = base64.b64decode(match[2], validate=True)
+    except ValueError:
+        raise VerificationError("PACKAGE_SRI_INVALID") from None
+    require(len(expected) == {"sha512": 64, "sha256": 32}[match[1]], "PACKAGE_SRI_INVALID")
+    return match[1], expected
+
+
+def verified_integrity(data: bytes, integrity: object) -> str:
+    algorithm, expected = expected_integrity(integrity)
+    actual = hashlib.new(algorithm, data).digest()
+    require(actual == expected, "PACKAGE_SRI_MISMATCH")
+    return algorithm + "-" + base64.b64encode(actual).decode()
+
+
+def integrity_controls() -> dict:
+    data = b"synthetic SRI control, not a client package"
+    sri = "sha512-" + base64.b64encode(hashlib.sha512(data).digest()).decode()
+    require(verified_integrity(data, sri) == sri, "SRI_POSITIVE_CONTROL_FAILED")
+    negatives = ((data, None), (data, "sha512-AAAA"), (data + b"changed", sri))
+    for body, value in negatives:
+        try:
+            verified_integrity(body, value)
+        except VerificationError:
+            continue
+        raise VerificationError("SRI_NEGATIVE_CONTROL_FAILED")
+    return {"syntheticOnly": True, "positive": 1, "negative": 3}
 
 
 def json_output(text: str) -> object:
@@ -141,15 +175,38 @@ class Verification:
                 "version", "dist.integrity", "--json", "--registry=https://registry.npmjs.org"]))
             require(isinstance(metadata, dict) and re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", metadata.get("version", "")) is not None,
                     "OFFICIAL_PACKAGE_VERSION_INVALID")
+            # Validate the advertised SRI before any installation. Pack may
+            # re-query the registry, so compare its actual bytes to the original
+            # query's SRI instead of treating that re-query as verification.
+            integrity = metadata.get("dist.integrity")
+            expected_integrity(integrity)
+            pack_root = self.temporary / "verified-package"
+            pack_root.mkdir()
+            packed = json_output(self.run("official-npm-pack", [npm, "pack", package + "@" + metadata["version"],
+                "--ignore-scripts", "--pack-destination", str(pack_root), "--json", "--registry=https://registry.npmjs.org"]))
+            require(isinstance(packed, list) and len(packed) == 1, "PACKAGE_PACK_RESULT_INVALID")
+            item = packed[0]
+            require(item.get("name") == package and item.get("version") == metadata["version"], "PACKAGE_PACK_IDENTITY_MISMATCH")
+            filename = item.get("filename")
+            require(isinstance(filename, str) and re.fullmatch(r"[A-Za-z0-9_.-]+\.tgz", filename) is not None,
+                    "PACKAGE_PACK_FILENAME_INVALID")
+            artifact = pack_root / filename
+            require(artifact.is_file() and not artifact.is_symlink(), "PACKAGE_TARBALL_MISSING")
+            data = artifact.read_bytes()
+            actual_integrity = verified_integrity(data, integrity)
+            require(item.get("integrity") == actual_integrity, "PACKAGE_PACK_SRI_MISMATCH")
             prefix = self.temporary / "official-client-prefix"
             self.receipt["installer"] = {"distribution": "official-npm", "package": package,
-                "version": metadata["version"], "integrity": metadata.get("dist.integrity")}
+                "version": metadata["version"], "integrity": actual_integrity,
+                "tarballSha256": digest(data), "tarballBytes": len(data), "tarballSriVerified": True}
             self.run("official-npm-install", [npm, "install", "--global", "--prefix", str(prefix),
-                "--no-audit", "--no-fund", "--registry=https://registry.npmjs.org", package + "@" + metadata["version"]], timeout=300)
+                "--no-audit", "--no-fund", "--registry=https://registry.npmjs.org", str(artifact)], timeout=300)
             binary = prefix / "bin" / self.client
             require(binary.is_file(), "OFFICIAL_CLIENT_BINARY_MISSING")
             version = self.run("version", [str(binary), "--version"]).strip()
-            require(bool(version) and len(version) < 300, "CLIENT_VERSION_INVALID")
+            expected = "codex-cli " + metadata["version"] if self.client == "codex" else metadata["version"] + " (Claude Code)"
+            require(version == expected, "CLIENT_VERSION_MISMATCH")
+            self.receipt["installer"]["actualVersionMatched"] = True
             self.receipt["clientVersion"] = self.clean(version)
             self.client_help = self.run("client-help", [str(binary), "--help"], help_output=True)
             return str(binary)
@@ -299,6 +356,7 @@ def main() -> int:
         verification = Verification(args.client, Path(directory), output)
         code = 1
         try:
+            verification.receipt["integrityControls"] = integrity_controls()
             verification.receipt["controllerRevision"] = verification.run(
                 "controller-revision", ["git", "-C", str(root), "rev-parse", "HEAD"]).strip()
             binary = verification.install_client()
