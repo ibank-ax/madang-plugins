@@ -47,6 +47,13 @@
       "source": "./plugins/aio/claude",
       "version": "0.1.0",
       "description": "AIO.MADANG의 기존 AI 답변을 본인 권한으로 읽어요. 첫 사용 때 조직 로그인과 명시적인 연결 승인이 필요해요."
+    },
+    {
+      "name": "aca",
+      "version": "0.1.0",
+      "displayName": "ACA.MADANG",
+      "source": "./plugins/aca/claude",
+      "description": "ACA.MADANG 조직별 설정 필요 · 현재 MCP 미설정 · 승인 Host variant 별도 설치"
     }
   ]
 }

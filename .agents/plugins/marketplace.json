@@ -81,6 +81,19 @@
       },
       "category": "Productivity",
       "version": "0.1.0"
+    },
+    {
+      "name": "aca",
+      "version": "0.1.0",
+      "source": {
+        "source": "local",
+        "path": "./plugins/aca/codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
     }
   ]
 }
