@@ -1,0 +1,12 @@
+{
+  "version": "0.1.0",
+  "sourceCommit": "ccb0774b90eba58c94a7f752d2d3d92fb322c8a8",
+  "sourceRepository": "ibank-ax/aca.madang.ai",
+  "platforms": [
+    "claude",
+    "codex",
+    "cursor"
+  ],
+  "organizationOriginRequired": true,
+  "endpointStatus": "tenant_variant_pending"
+}
