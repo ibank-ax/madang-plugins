@@ -29,6 +29,19 @@
       },
       "category": "Productivity",
       "version": "1.2.0"
+    },
+    {
+      "name": "ux",
+      "version": "0.1.0",
+      "source": {
+        "source": "local",
+        "path": "./plugins/ux/codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
     }
   ]
 }
