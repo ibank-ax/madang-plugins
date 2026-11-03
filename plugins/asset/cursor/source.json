@@ -1,0 +1,8 @@
+{
+  "serviceId": "asset",
+  "engine": "cursor",
+  "version": "1.0.0",
+  "sourceCommit": "b0877bbce3f8fdfc2e765c1243a076cb2de4be4f",
+  "mcpUrl": "https://asset.madang.ai/mcp",
+  "publication": "local-package-only"
+}

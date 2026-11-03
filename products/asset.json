@@ -1,0 +1,38 @@
+{
+  "version": "1.0.0",
+  "sourceCommit": "b0877bbce3f8fdfc2e765c1243a076cb2de4be4f",
+  "sourceRepository": "ibank-ax/asset.madang.ai",
+  "platforms": [
+    "claude",
+    "codex",
+    "cursor"
+  ],
+  "packageProvenance": {
+    "generator": "asset-plugin-export-v1",
+    "sourceTree": "f6a3e8d0b9f7df626a1cdc0aa7d24c4e9f9fb1af",
+    "integratedSourceCommit": "de7262736c21b3ea59f05485f37c91f07226f434",
+    "actualMergeCommit": "996cf9f2fa37023d06306fc1e918218e260cbe90",
+    "artifact": {
+      "id": 13276354699,
+      "workflowRunId": 41733262549,
+      "sha256": "3406228e63505ae96464bf3cb62c33f0d34c321b81c6e45ac0446190da006517"
+    },
+    "files": {
+      ".asset-generated.json": "8f160a55c9c94608804ca96462151a595a1799ba747fd80988f1c3ebb863abaf",
+      "claude/.claude-plugin/plugin.json": "f593cbc408cbbffaa124333f05d4501219083dd0db67ab0d0a26d310e54d42b0",
+      "claude/README.md": "375034724bd83e7694c04cfe56825701a97f7c385b27190ff88c67e06a59a328",
+      "claude/skills/asset-search/SKILL.md": "5346e9cf9f5b8093ececd08019563a5360b2d605f33dcd05d36fbd37de7663a7",
+      "claude/source.json": "eec796c6d6ead455b76cadc1654edb326e5d893ed5ec0198836f84be862b52a9",
+      "codex/.codex-plugin/plugin.json": "0280e073729cdc2a8bae0b4d242a3f7e841039208003b686906fb7bbd210f30a",
+      "codex/README.md": "eb0687260d492aac425cbfd938bcc0e3ba7bcfd7bfb78f2137c87469c0959665",
+      "codex/codex-mcp.json": "0f0c8238479839a93ea7ac22fbac0eadf4c34eb1cb2447e5aad48145f2764c90",
+      "codex/skills/asset-search/SKILL.md": "5346e9cf9f5b8093ececd08019563a5360b2d605f33dcd05d36fbd37de7663a7",
+      "codex/source.json": "a38e2ed846c1a1b69fff0625f2e1ee9873085fa281c28819f5c8c9ddb665f15c",
+      "cursor/.cursor-plugin/plugin.json": "4812e3cf5037115bfac83c95b3f0c1772072d53b666aba0375aff165f1d1a666",
+      "cursor/README.md": "5e5a5d1693b1c7f555baddca8ebcf2170a9bb4268f665d10c8b890ffaaa1ceee",
+      "cursor/mcp.json": "72430ef6eb00e54fc6e534cd0ee7dd28b0cebe736cb53e5c192c2dc340c526cb",
+      "cursor/skills/asset-search/SKILL.md": "5346e9cf9f5b8093ececd08019563a5360b2d605f33dcd05d36fbd37de7663a7",
+      "cursor/source.json": "8f0fcfa5ee670d61d547463268e013a08edcc4fa47c107a0420fa87cc4661753"
+    }
+  }
+}
