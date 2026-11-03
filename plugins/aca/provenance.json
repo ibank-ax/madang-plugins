@@ -1,0 +1,24 @@
+{
+  "format": "aca-public-package-source-v1",
+  "providerRepository": "ibank-ax/aca.madang.ai",
+  "providerSource": "ccb0774b90eba58c94a7f752d2d3d92fb322c8a8",
+  "providerInputSha256": {
+    "plugins/aca/source.json": "df3c0eeb371bf1d7aeb4db6167e5d526c2bc4d4bc89a771831cbd173f5ef9ab7",
+    "plugins/aca/README.md": "ce3088cbfb20839f9ee392f50e28df0f3d6fe4a0ea48cf2fc2c30a5758854450",
+    "plugins/aca/skills/setup/SKILL.md": "bb6863fcf5f2b4cdf3e76ab21faca7feb163a9790ff023b4fb0b7aec15d97dcb",
+    "plugins/aca/skills/read/SKILL.md": "9bc3e5aa887f1dd6e91012053b72d701cf8cc64d7aa393ff8d7b7acfe02c95ab",
+    "plugins/aca/export-allowlist.json": "aa383f1867d705e6978bb035212fdc1c3b5704cadc425d9f51aa7a4023b2daeb",
+    "plugins/aca/export.mjs": "d56608aee6ed33217cc159df6da0b2090d1695399a49b117b711d7f4a0b98be4",
+    "contracts/mcp/provider.ts": "cbd786c47bb99240b85d08ce1d065c0c31eae1158b3e53ad9bf9ff68ce107a62",
+    "src/mcp/http.ts": "64cb7a386c564d39be6a73147bb98ae7103318cc6c77e7a70f8876d54ca8bab8"
+  },
+  "migration15Source": "1b48db6414aa849af59d5278d5ba895c3b613ec7",
+  "nativeSourceObserved": "8fb69cd2be439425dc57878a2d04346408af3611",
+  "endpointStatus": "tenant_variant_pending",
+  "organizationOriginRequired": true,
+  "familyDiscovery": "unavailable",
+  "operationalEnabled": false,
+  "threeIdeInstalled": false,
+  "oauthAccepted": false,
+  "actualReadAccepted": false
+}

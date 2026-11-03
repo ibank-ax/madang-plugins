@@ -1,0 +1,15 @@
+{
+  "name": "aca",
+  "version": "0.1.0",
+  "description": "ACA.MADANG 조직별 설정 필요 · MCP 미설정",
+  "author": {
+    "name": "iBank AX 솔루션사업본부"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ACA.MADANG",
+    "shortDescription": "조직별 설정 후 목표 현황 집계 읽기",
+    "developerName": "iBank AX 솔루션사업본부",
+    "category": "Productivity"
+  }
+}

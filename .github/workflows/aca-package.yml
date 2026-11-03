@@ -1,0 +1,43 @@
+name: ACA public organization package
+
+on:
+  push:
+    paths: ['plugins/aca/**', 'products/aca.json', '.github/workflows/aca-package.yml']
+  pull_request:
+    paths: ['plugins/aca/**', 'products/aca.json', '.github/workflows/aca-package.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.22.0
+      - name: Verify synthetic organization variants and refusal pairs remotely
+        run: node --test plugins/aca/test/export.test.mjs
+      - name: Generate endpoint-free public bootstrap and source receipt remotely
+        run: node plugins/aca/ci.mjs --out '${{ runner.temp }}/aca-public-bootstrap' --receipt '${{ runner.temp }}/aca-public-export-receipt.json'
+      - name: Preserve only endpoint-free public bootstrap, never organization fixture output
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: aca-public-bootstrap-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/aca-public-bootstrap/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+      - name: Preserve bounded source and package verification receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: aca-public-export-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/aca-public-export-receipt.json
+          if-no-files-found: error
+          retention-days: 7

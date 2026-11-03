@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "name": "aca",
+  "displayName": "ACA.MADANG",
+  "version": "0.1.0",
+  "sourceRepository": "https://github.com/ibank-ax/aca.madang.ai",
+  "endpointPath": "/mcp",
+  "scope": "aca:read",
+  "tools": ["goals_summary_get"],
+  "transport": "native-http",
+  "organizationOriginRequired": true,
+  "familyDiscovery": "unavailable"
+}

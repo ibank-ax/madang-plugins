@@ -1,0 +1,10 @@
+{
+  "name": "aca",
+  "version": "0.1.0",
+  "description": "ACA.MADANG 조직별 설정 필요 · MCP 미설정",
+  "author": {
+    "name": "iBank AX 솔루션사업본부"
+  },
+  "skills": "./skills/",
+  "displayName": "ACA.MADANG"
+}

@@ -1,0 +1,6 @@
+[
+  "claude/.claude-plugin/plugin.json", "claude/.mcp.json", "claude/README.md", "claude/skills/aca-setup/SKILL.md", "claude/skills/aca-read/SKILL.md",
+  "codex/.codex-plugin/plugin.json", "codex/codex-mcp.json", "codex/README.md", "codex/skills/aca-setup/SKILL.md", "codex/skills/aca-read/SKILL.md",
+  "cursor/.cursor-plugin/plugin.json", "cursor/mcp.json", "cursor/README.md", "cursor/skills/aca-setup/SKILL.md", "cursor/skills/aca-read/SKILL.md",
+  "SOURCE.json", "EXPORT-RECEIPT.json"
+]
