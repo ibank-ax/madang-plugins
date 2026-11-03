@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "asset": {
+      "url": "https://asset.madang.ai/mcp",
+      "startup_timeout_sec": 30,
+      "tool_timeout_sec": 30
+    }
+  }
+}

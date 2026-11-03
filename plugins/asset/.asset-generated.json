@@ -1,0 +1,20 @@
+{
+  "generator": "asset-plugin-export-v1",
+  "sourceCommit": "b0877bbce3f8fdfc2e765c1243a076cb2de4be4f",
+  "files": [
+    "claude/.claude-plugin/plugin.json",
+    "claude/README.md",
+    "claude/skills/asset-search/SKILL.md",
+    "claude/source.json",
+    "codex/.codex-plugin/plugin.json",
+    "codex/README.md",
+    "codex/codex-mcp.json",
+    "codex/skills/asset-search/SKILL.md",
+    "codex/source.json",
+    "cursor/.cursor-plugin/plugin.json",
+    "cursor/README.md",
+    "cursor/mcp.json",
+    "cursor/skills/asset-search/SKILL.md",
+    "cursor/source.json"
+  ]
+}

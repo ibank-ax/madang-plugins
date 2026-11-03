@@ -1,0 +1,16 @@
+{
+  "name": "asset",
+  "version": "1.0.0",
+  "description": "조직 계정으로 허용한 에셋 읽기 검색과 원격 OAuth MCP 연결",
+  "author": {
+    "name": "iBank AX 솔루션사업본부"
+  },
+  "interface": {
+    "displayName": "ASSET.MADANG",
+    "shortDescription": "조직 계정으로 허용한 에셋 읽기 검색과 원격 OAuth MCP 연결",
+    "developerName": "iBank AX 솔루션사업본부",
+    "category": "Productivity"
+  },
+  "skills": "./skills/",
+  "mcpServers": "./codex-mcp.json"
+}
