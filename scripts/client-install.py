@@ -211,10 +211,18 @@ class Verification:
             require(isinstance(registered, dict) and registered.get("marketplaceName") == "madang", "MARKETPLACE_NOT_REGISTERED")
             self.run("marketplace-list", [binary, "plugin", "marketplace", "list", "--json"])
         else:
+            # Claude's documented #ref is a branch/tag, not an arbitrary SHA.
+            # Record the native Git snapshot actually fetched from the public
+            # default branch; verify each of the six payloads against SOURCE.
             registered = json_output(self.run("marketplace-add", [binary, "plugin", "marketplace", "add",
-                                                                      PUBLIC_GIT + "#" + SOURCE, "--json"]))
+                                                                      PUBLIC_GIT, "--json"]))
             require(isinstance(registered, dict) and registered.get("outcome") == "ok", "MARKETPLACE_NOT_REGISTERED")
             self.run("marketplace-list", [binary, "plugin", "marketplace", "list", "--json"])
+            snapshot = self.home / ".claude/plugins/marketplaces/madang"
+            require(snapshot.is_dir(), "NATIVE_MARKETPLACE_SNAPSHOT_MISSING")
+            revision = self.run("native-marketplace-revision", ["git", "-C", str(snapshot), "rev-parse", "HEAD"]).strip()
+            require(re.fullmatch(r"[0-9a-f]{40}", revision) is not None, "NATIVE_MARKETPLACE_REVISION_INVALID")
+            self.receipt["nativeMarketplaceRevision"] = revision
         self.receipt["nativeMarketplaceRegistered"] = True
         for name in PRODUCTS:
             verb = "add" if self.client == "codex" else "install"
@@ -265,6 +273,16 @@ class Verification:
         }
         self.receipt["limitation"] = "CURSOR_UNATTENDED_INSTALL_NOT_YET_VERIFIED"
         self.receipt["capabilityDiscoveryComplete"] = True
+        if re.search(r"(?m)^\s+marketplace\b", text):
+            # These exact commands/flags were advertised by current native
+            # agent 2026.10.22-27dcf5f in run 41742477225. No account/login retry.
+            self.run("cursor-marketplace-add", [binary, command.group(1), "marketplace", "add", PUBLIC_GIT,
+                                                 "--git-ref", SOURCE])
+            listing = json_output(self.run("cursor-marketplace-list", [binary, command.group(1), "marketplace",
+                                                                         "list", "--format", "json"]))
+            require(any(item.get("name") == "madang" or item.get("marketplaceName") == "madang"
+                        for item in objects(listing)), "NATIVE_MARKETPLACE_NOT_LISTED")
+            self.receipt["nativeMarketplaceRegistered"] = True
 
 
 def main() -> int:
