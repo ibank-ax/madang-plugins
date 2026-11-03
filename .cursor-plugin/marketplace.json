@@ -18,6 +18,13 @@
       "source": "./plugins/docs/cursor",
       "version": "1.2.0",
       "description": "DOCS.MADANG 스킬과 원격 MCP — OAuth 로그인에서 조직 선택"
+    },
+    {
+      "name": "ux",
+      "version": "0.1.0",
+      "displayName": "UX.MADANG",
+      "source": "./plugins/ux/cursor",
+      "description": "UX.MADANG 프로젝트·리포트·어휘 읽기와 원격 OAuth MCP 연결"
     }
   ]
 }
