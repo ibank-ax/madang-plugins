@@ -12,6 +12,8 @@ ASSET.MADANG의 Claude Code·Codex·Cursor 패키지는 `asset@madang`으로 찾
 
 AIO.MADANG의 Claude Code·Codex·Cursor 패키지는 `aio@madang`으로 찾을 수 있습니다. [플랫폼별 안내](plugins/aio/)의 조직 로그인·명시적 연결 승인에 따라 기존 AI 답변을 `answers:read` 범위에서 읽도록 구성하며, 실제 IDE 설치·SSO·MCP 호출 수용은 별도로 확인합니다.
 
+ACA.MADANG의 Claude Code·Codex·Cursor 패키지는 `aca@madang`으로 찾을 수 있습니다. [ACA 조직별 설정 안내](plugins/aca/README.md)에 따라 조직별 설정이 필요하며, 기본 패키지에는 MCP endpoint가 없습니다(`tenant_variant_pending`). 승인된 조직 Host의 native HTTP 변형 패키지를 별도로 생성·설치해야 합니다. 공개 기본 패키지 등록과 실제 조직 Host 등록·세 IDE 설치·SSO/OAuth·MCP 읽기 수용은 별도로 확인합니다.
+
 DEV.MADANG의 프로젝트 개발자는 해당 프로젝트의 서버·접속 자격·저장소·도메인·Cloudflare 설정을 관리할 수 있습니다. 직접 관리에는 새 `infra:write`, 환경변수·계정·키 수정에는 `infra:env:write` 동의가 필요합니다. 기존 OAuth 연결은 해당 권한을 선택해 다시 연결하고, PAT는 필요한 권한으로 새로 발급합니다. 기존 `settings:write`는 변경안 제안·웹 승인 범위를 유지합니다. 비밀은 암호화 저장하며 값 대신 저장 유무와 키 이름·버전만 반환합니다.
 
 DEV.MADANG과 DOCS.MADANG 모두 **원격 HTTP MCP·OAuth**를 기본으로 제공합니다. DOCS 플러그인은 `https://docs.madang.ai/mcp`로 연결하고 브라우저에서 이메일로 소속 조직을 찾은 뒤 조직 계정으로 로그인·승인합니다. 조직 URL 환경 변수나 Node.js·로컬 브릿지는 필요하지 않습니다. HTTP 미지원 도구는 조직 콘솔의 **기타 도구(stdio)** 안내를 사용합니다.
