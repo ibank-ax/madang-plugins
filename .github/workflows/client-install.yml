@@ -1,8 +1,6 @@
 name: Public client install and capability verification
 
 on:
-  push:
-    branches: [codex/plugin-client-install-1104]
   pull_request:
     paths:
       - .github/workflows/client-install.yml
@@ -29,6 +27,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Native public client only; isolated HOME, no auth or MCP invocation
         run: python3 scripts/client-install.py --client '${{ matrix.client }}'
       - uses: actions/upload-artifact@v4

@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 import urllib.request
@@ -77,7 +78,7 @@ class Verification:
         # Deliberate allowlist. Do not copy a runner's credentials, API keys,
         # Git/CLI configuration, credential helpers, SSH agent or token variables.
         self.env = {
-            "PATH": str(self.home / ".local/bin") + ":" + os.defpath,
+            "PATH": str(Path(shutil.which("node") or "/usr/bin/node").parent) + ":" + str(self.home / ".local/bin") + ":" + os.defpath,
             "HOME": str(self.home),
             "TMPDIR": str(temporary),
             "XDG_CONFIG_HOME": str(self.home / ".config"),
@@ -88,6 +89,9 @@ class Verification:
             "GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "/bin/false",
             "GIT_SSH_COMMAND": "false", "CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1",
             "DISABLE_TELEMETRY": "1", "DISABLE_ERROR_REPORTING": "1",
+            "NPM_CONFIG_USERCONFIG": str(temporary / "empty-user.npmrc"),
+            "NPM_CONFIG_GLOBALCONFIG": str(temporary / "empty-global.npmrc"),
+            "npm_config_cache": str(temporary / "npm-cache"),
         }
         self.receipt: dict[str, object] = {
             "schema": 1, "client": client, "publicRepository": REPOSITORY,
@@ -125,6 +129,30 @@ class Verification:
         return text
 
     def install_client(self) -> str:
+        if self.client in ("codex", "claude"):
+            # Both vendors document this public distribution. The first CI's
+            # standalone HTTP download failure remains a separate receipt.
+            # https://learn.chatgpt.com/docs/changelog
+            # https://code.claude.com/docs/en/setup#install-with-npm
+            package = "@openai/codex" if self.client == "codex" else "@anthropic-ai/claude-code"
+            npm = shutil.which("npm")
+            require(npm is not None, "NPM_BINARY_MISSING")
+            metadata = json_output(self.run("official-npm-version", [npm, "view", package + "@latest",
+                "version", "dist.integrity", "--json", "--registry=https://registry.npmjs.org"]))
+            require(isinstance(metadata, dict) and re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", metadata.get("version", "")) is not None,
+                    "OFFICIAL_PACKAGE_VERSION_INVALID")
+            prefix = self.temporary / "official-client-prefix"
+            self.receipt["installer"] = {"distribution": "official-npm", "package": package,
+                "version": metadata["version"], "integrity": metadata.get("dist.integrity")}
+            self.run("official-npm-install", [npm, "install", "--global", "--prefix", str(prefix),
+                "--no-audit", "--no-fund", "--registry=https://registry.npmjs.org", package + "@" + metadata["version"]], timeout=300)
+            binary = prefix / "bin" / self.client
+            require(binary.is_file(), "OFFICIAL_CLIENT_BINARY_MISSING")
+            version = self.run("version", [str(binary), "--version"]).strip()
+            require(bool(version) and len(version) < 300, "CLIENT_VERSION_INVALID")
+            self.receipt["clientVersion"] = self.clean(version)
+            self.client_help = self.run("client-help", [str(binary), "--help"], help_output=True)
+            return str(binary)
         url, shell = INSTALLERS[self.client]
         with urllib.request.urlopen(url, timeout=45) as response:
             data = response.read(2 * 1024 * 1024 + 1)
@@ -225,6 +253,10 @@ class Verification:
         command = re.search(r"(?m)^\s+(plugins?)\b", self.client_help)
         text = self.run("cursor-plugin-help", [binary, command.group(1), "--help"],
                         allow_failure=True, help_output=True) if command else ""
+        if re.search(r"(?m)^\s+marketplace\b", text):
+            self.run("cursor-marketplace-help", [binary, command.group(1), "marketplace", "--help"], help_output=True)
+            self.run("cursor-marketplace-add-help", [binary, command.group(1), "marketplace", "add", "--help"], help_output=True)
+            self.run("cursor-marketplace-list-help", [binary, command.group(1), "marketplace", "list", "--help"], help_output=True)
         self.receipt["cursorCapabilityProbe"] = {
             "installVerbAdvertised": re.search(r"(?m)^\s+(?:install|add)\b", text) is not None,
             "pluginCommandAdvertised": command is not None,
