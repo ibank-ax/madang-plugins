@@ -1,4 +1,4 @@
-name: Public client install and capability verification
+name: Public supported CLI installation
 
 on:
   pull_request:
@@ -16,7 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        client: [codex, claude, cursor]
+        # Cursor's native auth refusal is preserved in run 41743350261.
+        # It is not installed/accepted and must not be retried with credentials.
+        client: [codex, claude]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:

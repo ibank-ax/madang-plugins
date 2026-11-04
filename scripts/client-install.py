@@ -37,6 +37,12 @@ class VerificationError(RuntimeError):
     pass
 
 
+class PayloadSetError(VerificationError):
+    def __init__(self, missing: set[str], extra: set[str]) -> None:
+        super().__init__("PAYLOAD_FILESET_MISMATCH")
+        self.difference = {"missing": sorted(missing), "extra": sorted(extra)}
+
+
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -77,6 +83,72 @@ def integrity_controls() -> dict:
             continue
         raise VerificationError("SRI_NEGATIVE_CONTROL_FAILED")
     return {"syntheticOnly": True, "positive": 1, "negative": 3}
+
+
+def regular_files(root: Path) -> dict[str, Path]:
+    require(root.is_dir() and not root.is_symlink(), "PAYLOAD_ROOT_INVALID")
+    result = {}
+    for path in root.rglob("*"):
+        require(not path.is_symlink(), "PAYLOAD_SYMLINK_UNSUPPORTED")
+        if path.is_dir():
+            continue
+        require(path.is_file(), "PAYLOAD_SPECIAL_FILE_UNSUPPORTED")
+        result[path.relative_to(root).as_posix()] = path
+    return result
+
+
+def matched_tree(actual: Path, reference: Path) -> dict[str, Path]:
+    expected, installed = regular_files(reference), regular_files(actual)
+    require(bool(expected), "REFERENCE_PACKAGE_EMPTY")
+    if set(expected) != set(installed):
+        raise PayloadSetError(set(expected) - set(installed), set(installed) - set(expected))
+    require(all(installed[name].read_bytes() == path.read_bytes() for name, path in expected.items()),
+            "PAYLOAD_BYTES_MISMATCH")
+    return installed
+
+
+def safe_package(root: Path, relative: object) -> Path:
+    require(isinstance(relative, str) and not Path(relative).is_absolute(), "PACKAGE_PATH_INVALID")
+    current = root
+    require(current.is_dir() and not current.is_symlink(), "PACKAGE_ROOT_INVALID")
+    for part in Path(relative).parts:
+        require(part not in ("..", ""), "PACKAGE_PATH_ESCAPE")
+        current = current / part
+        require(not current.is_symlink(), "PACKAGE_PATH_SYMLINK")
+    require(current.resolve().is_relative_to(root.resolve()), "PACKAGE_PATH_ESCAPE")
+    return current
+
+
+def payload_controls(temporary: Path) -> dict:
+    reference, actual = temporary / "reference-control", temporary / "installed-control"
+    reference.mkdir()
+    actual.mkdir()
+    (reference / "SKILL.md").write_text("synthetic file-set control, not a plugin")
+    shutil.copyfile(reference / "SKILL.md", actual / "SKILL.md")
+    require(len(matched_tree(actual, reference)) == 1, "PAYLOAD_POSITIVE_CONTROL_FAILED")
+    hook = actual / "hooks"
+    hook.mkdir()
+    (hook / "hooks.json").write_text('{"hooks":{}}')
+    variants = ("extra-hook", "missing", "file-symlink", "directory-symlink")
+    for variant in variants:
+        if variant == "missing":
+            (hook / "hooks.json").unlink()
+            hook.rmdir()
+            (actual / "SKILL.md").unlink()
+        elif variant == "file-symlink":
+            (actual / "SKILL.md").symlink_to(reference / "SKILL.md")
+        elif variant == "directory-symlink":
+            (actual / "SKILL.md").unlink()
+            shutil.copyfile(reference / "SKILL.md", actual / "SKILL.md")
+            (actual / "alias").symlink_to(reference, target_is_directory=True)
+        try:
+            matched_tree(actual, reference)
+        except VerificationError as error:
+            expected = "PAYLOAD_FILESET_MISMATCH" if variant in ("extra-hook", "missing") else "PAYLOAD_SYMLINK_UNSUPPORTED"
+            require(str(error) == expected, "PAYLOAD_NEGATIVE_CONTROL_WRONG_REASON")
+            continue
+        raise VerificationError("PAYLOAD_NEGATIVE_CONTROL_FAILED")
+    return {"syntheticOnly": True, "positive": 1, "negative": 4, "variants": list(variants)}
 
 
 def json_output(text: str) -> object:
@@ -246,19 +318,28 @@ class Verification:
 
     def payload(self, installed: Path, reference: Path, name: str, version: str) -> dict:
         require(installed.is_dir() and installed.resolve().is_relative_to(self.home.resolve()), "INSTALLED_PATH_OUTSIDE_ISOLATION")
-        files = [path for path in reference.rglob("*") if path.is_file()]
-        require(bool(files), "REFERENCE_PACKAGE_EMPTY")
+        files = matched_tree(installed, reference)
         skills = []
-        for path in files:
-            require(not path.is_symlink(), "REFERENCE_SYMLINK_UNSUPPORTED")
-            relative = path.relative_to(reference)
-            actual = installed / relative
-            require(actual.is_file() and not actual.is_symlink() and actual.read_bytes() == path.read_bytes(),
-                    "INSTALLED_PAYLOAD_MISMATCH")
-            if relative.name == "SKILL.md":
-                skills.append({"path": relative.as_posix(), "sha256": digest(actual.read_bytes())})
+        for relative, actual in files.items():
+            if Path(relative).name == "SKILL.md":
+                skills.append({"path": relative, "sha256": digest(actual.read_bytes())})
         return {"name": name, "version": version, "installed": True, "listedByNativeClient": True,
-                "matchedPayloadFiles": len(files), "skills": skills, "skillReferences": len(skills)}
+                "matchedPayloadFiles": len(files), "exactFileSet": True,
+                "skills": skills, "skillReferences": len(skills)}
+
+    def native_payload(self, snapshot: Path, source: Path, entries: dict, name: str) -> Path:
+        require(snapshot.resolve().is_relative_to(self.home.resolve()), "NATIVE_SNAPSHOT_OUTSIDE_ISOLATION")
+        catalog = ".agents/plugins/marketplace.json" if self.client == "codex" else ".claude-plugin/marketplace.json"
+        value = json.loads(safe_package(snapshot, catalog).read_text())
+        require(value.get("name") == "madang", "NATIVE_MARKETPLACE_NAME_CHANGED")
+        found = [entry for entry in value["plugins"] if entry.get("name") == name]
+        require(len(found) == 1 and found[0] == entries[name], "NATIVE_CATALOG_ENTRY_CHANGED")
+        entry = found[0]
+        relative = entry["source"]["path"] if isinstance(entry["source"], dict) else entry["source"]
+        reference = safe_package(source, relative)
+        self.receipt["payloadCheckStage"] = "native-snapshot-" + name
+        matched_tree(safe_package(snapshot, relative), reference)
+        return reference
 
     def verify(self, binary: str, source: Path, entries: dict[str, dict]) -> None:
         self.run("plugin-help", [binary, "plugin", "--help"], help_output=True)
@@ -267,6 +348,8 @@ class Verification:
                                                                       "--ref", SOURCE, "--json"]))
             require(isinstance(registered, dict) and registered.get("marketplaceName") == "madang", "MARKETPLACE_NOT_REGISTERED")
             self.run("marketplace-list", [binary, "plugin", "marketplace", "list", "--json"])
+            require(isinstance(registered.get("installedRoot"), str), "NATIVE_MARKETPLACE_SNAPSHOT_MISSING")
+            snapshot = Path(registered["installedRoot"])
         else:
             # Claude's documented #ref is a branch/tag, not an arbitrary SHA.
             # Record the native Git snapshot actually fetched from the public
@@ -282,6 +365,7 @@ class Verification:
             self.receipt["nativeMarketplaceRevision"] = revision
         self.receipt["nativeMarketplaceRegistered"] = True
         for name in PRODUCTS:
+            reference = self.native_payload(snapshot, source, entries, name)
             verb = "add" if self.client == "codex" else "install"
             result = json_output(self.run("install-" + name, [binary, "plugin", verb, name + "@madang", "--json"]))
             if self.client == "claude":
@@ -303,10 +387,9 @@ class Verification:
                 path = next((item.get("installPath") for item in state_items if item.get("installPath")), None)
             require(isinstance(path, str), "NATIVE_INSTALLED_PATH_MISSING")
             entry = entries[name]
-            relative = entry["source"]["path"] if isinstance(entry["source"], dict) else entry["source"]
-            reference = (source / relative).resolve()
-            require(reference.is_relative_to(source), "REFERENCE_PATH_ESCAPE")
+            self.receipt["payloadCheckStage"] = "installed-" + name
             plugin = self.payload(Path(path), reference, name, entry["version"])
+            self.native_payload(snapshot, source, entries, name)
             self.receipt["plugins"].append(plugin)
             self.receipt["installedAndListed"] = len(self.receipt["plugins"])
         require(self.receipt["installedAndListed"] == 6, "INSTALLATION_DENOMINATOR_INCOMPLETE")
@@ -356,7 +439,12 @@ def main() -> int:
         verification = Verification(args.client, Path(directory), output)
         code = 1
         try:
+            if args.client == "cursor":
+                verification.receipt["priorAuthRefusal"] = {"run": 41743350261,
+                    "clientVersion": "2026.10.22-27dcf5f", "phase": "cursor-marketplace-add"}
+                raise VerificationError("CURSOR_AUTHENTICATION_REQUIRED_NO_RETRY")
             verification.receipt["integrityControls"] = integrity_controls()
+            verification.receipt["payloadSetControls"] = payload_controls(Path(directory))
             verification.receipt["controllerRevision"] = verification.run(
                 "controller-revision", ["git", "-C", str(root), "rev-parse", "HEAD"]).strip()
             binary = verification.install_client()
@@ -369,6 +457,8 @@ def main() -> int:
                 code = 0
         except Exception as error:
             verification.receipt["failureCode"] = str(error) if isinstance(error, VerificationError) else type(error).__name__
+            if isinstance(error, PayloadSetError):
+                verification.receipt["payloadSetDifference"] = error.difference
         finally:
             (output / "receipt.json").write_text(json.dumps(verification.receipt, ensure_ascii=False, indent=2) + "\n")
         print(f"CLIENT_RESULT {args.client} installed={verification.receipt['installedAndListed']}/6 complete={verification.receipt['complete']}", flush=True)
