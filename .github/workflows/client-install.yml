@@ -6,6 +6,14 @@ on:
       - .github/workflows/client-install.yml
       - scripts/client-install.py
   workflow_dispatch:
+    inputs:
+      product_set:
+        type: choice
+        default: madang-six-cae
+        options: [madang-six-cae, aca-bootstrap-d83]
+
+env:
+  PUBLIC_PRODUCT_SET: ${{ inputs.product_set || (github.head_ref == 'codex/aca-bootstrap-install-1104' && 'aca-bootstrap-d83' || 'madang-six-cae') }}
 
 permissions:
   contents: read
@@ -33,10 +41,10 @@ jobs:
         with:
           node-version: '22'
       - name: Native public client only; isolated HOME, no auth or MCP invocation
-        run: python3 scripts/client-install.py --client '${{ matrix.client }}'
+        run: python3 scripts/client-install.py --client '${{ matrix.client }}' --product-set "$PUBLIC_PRODUCT_SET"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: public-client-${{ matrix.client }}
+          name: public-client-${{ env.PUBLIC_PRODUCT_SET }}-${{ matrix.client }}
           if-no-files-found: error
-          path: results/client-install/${{ matrix.client }}/
+          path: results/client-install/${{ env.PUBLIC_PRODUCT_SET }}/${{ matrix.client }}/

@@ -22,6 +22,10 @@ REPOSITORY = "ibank-ax/madang-plugins"
 PUBLIC_GIT = "https://github.com/ibank-ax/madang-plugins.git"
 SOURCE = "cae1f0851c7ca07dd0233ae8719929b9d2ee6562"
 PRODUCTS = ("dev", "docs", "ux", "works", "asset", "aio")
+PRODUCT_SETS = {
+    "madang-six-cae": (SOURCE, PRODUCTS, PRODUCTS),
+    "aca-bootstrap-d83": ("d83f367210625ff9dc3fbbd6b29fa4bba5fdfbda", ("aca",), PRODUCTS + ("aca",)),
+}
 INSTALLERS = {
     # Official installation pages, retrieved 2026-11-04:
     # https://learn.chatgpt.com/docs/codex/cli
@@ -175,8 +179,10 @@ def objects(value: object):
 
 
 class Verification:
-    def __init__(self, client: str, temporary: Path, output: Path) -> None:
+    def __init__(self, client: str, temporary: Path, output: Path, product_set: str) -> None:
         self.client, self.temporary, self.output = client, temporary, output
+        self.product_set = product_set
+        self.source, self.products, self.catalog_products = PRODUCT_SETS[product_set]
         self.home = temporary / "client-home"
         self.work = temporary / "empty-project"
         self.home.mkdir()
@@ -201,8 +207,9 @@ class Verification:
         }
         self.receipt: dict[str, object] = {
             "schema": 1, "client": client, "publicRepository": REPOSITORY,
-            "requestedPublicRevision": SOURCE, "controllerRevision": os.environ.get("GITHUB_SHA"),
-            "productsRequired": list(PRODUCTS), "requiredInstallations": 6,
+            "productSet": product_set, "requestedPublicRevision": self.source,
+            "controllerRevision": os.environ.get("GITHUB_SHA"),
+            "productsRequired": list(self.products), "requiredInstallations": len(self.products),
             "installedAndListed": 0, "plugins": [], "commands": [],
             "personalHomeRead": False, "existingCredentialsUsed": False,
             "loginExecuted": False, "oauthConsentExecuted": False, "modelSessionExecuted": False,
@@ -303,17 +310,34 @@ class Verification:
     def reference(self) -> tuple[Path, dict[str, dict]]:
         source = self.temporary / "anonymous-public-source"
         self.run("anonymous-clone", ["git", "-c", "credential.helper=", "clone", "--no-checkout", PUBLIC_GIT, str(source)])
-        self.run("anonymous-checkout", ["git", "-C", str(source), "checkout", "--detach", SOURCE])
+        self.run("anonymous-checkout", ["git", "-C", str(source), "checkout", "--detach", self.source])
         actual = self.run("anonymous-revision", ["git", "-C", str(source), "rev-parse", "HEAD"]).strip()
-        require(actual == SOURCE, "PUBLIC_REVISION_MISMATCH")
+        require(actual == self.source, "PUBLIC_REVISION_MISMATCH")
         catalogs = {"codex": ".agents/plugins/marketplace.json", "claude": ".claude-plugin/marketplace.json",
                     "cursor": ".cursor-plugin/marketplace.json"}
         catalog = json.loads((source / catalogs[self.client]).read_text())
         require(catalog["name"] == "madang", "MARKETPLACE_NAME_MISMATCH")
         entries = {entry["name"]: entry for entry in catalog["plugins"]}
-        require(set(entries) == set(PRODUCTS), "SIX_PRODUCT_DENOMINATOR_CHANGED")
+        require(len(catalog["plugins"]) == len(self.catalog_products)
+                and set(entries) == set(self.catalog_products), "REFERENCE_CATALOG_DENOMINATOR_CHANGED")
         self.receipt["anonymousPublicRevision"] = actual
         self.receipt["catalogSha256"] = digest((source / catalogs[self.client]).read_bytes())
+        if self.product_set == "aca-bootstrap-d83":
+            counts = {}
+            for client, relative in catalogs.items():
+                reference = json.loads((source / relative).read_text())
+                require(len(reference["plugins"]) == 7
+                        and {entry["name"] for entry in reference["plugins"]} == set(self.catalog_products),
+                        "ACA_REFERENCE_CATALOG_DENOMINATOR_CHANGED")
+                counts[client] = 7
+            state = json.loads((source / "plugins/aca/provenance.json").read_text())
+            require(state["endpointStatus"] == "tenant_variant_pending"
+                    and state["organizationOriginRequired"] is True and state["familyDiscovery"] == "unavailable"
+                    and all(state[key] is False for key in ("operationalEnabled", "threeIdeInstalled", "oauthAccepted", "actualReadAccepted")),
+                    "ACA_BOOTSTRAP_SOURCE_STATE_CHANGED")
+            self.receipt["referenceCatalogDataOnly"] = {"entriesPerClient": counts, "totalEntries": 21}
+            self.receipt["bootstrapSourceState"] = {"endpointStatus": "tenant_variant_pending",
+                "organizationOriginRequired": True, "familyDiscovery": "unavailable", "operationalEnabled": False}
         return source, entries
 
     def payload(self, installed: Path, reference: Path, name: str, version: str) -> dict:
@@ -323,9 +347,23 @@ class Verification:
         for relative, actual in files.items():
             if Path(relative).name == "SKILL.md":
                 skills.append({"path": relative, "sha256": digest(actual.read_bytes())})
-        return {"name": name, "version": version, "installed": True, "listedByNativeClient": True,
+        result = {"name": name, "version": version, "installed": True, "listedByNativeClient": True,
                 "matchedPayloadFiles": len(files), "exactFileSet": True,
                 "skills": skills, "skillReferences": len(skills)}
+        if self.product_set == "aca-bootstrap-d83":
+            manifest = ".codex-plugin/plugin.json" if self.client == "codex" else ".claude-plugin/plugin.json"
+            require(set(files) == {manifest, "README.md", "skills/aca-read/SKILL.md", "skills/aca-setup/SKILL.md"},
+                    "ACA_BOOTSTRAP_FILESET_CHANGED")
+            value = json.loads(files[manifest].read_text())
+            require(value["name"] == "aca" and value["version"] == "0.1.0"
+                    and all(not (set(item) & {"mcpServers", "mcp", "endpoint", "url", "command", "args", "env"}) for item in objects(value)),
+                    "ACA_BOOTSTRAP_ENDPOINT_PRESENT")
+            require(len(skills) == 2 and "tenant_variant_pending" in files["README.md"].read_text()
+                    and "tenant_variant_pending" in files["skills/aca-setup/SKILL.md"].read_text(),
+                    "ACA_BOOTSTRAP_STATE_MISSING")
+            result.update(endpointStatus="tenant_variant_pending", configuredMcpEndpoints=0,
+                          organizationVariantGenerated=False, actualReadAccepted=False)
+        return result
 
     def native_payload(self, snapshot: Path, source: Path, entries: dict, name: str) -> Path:
         require(snapshot.resolve().is_relative_to(self.home.resolve()), "NATIVE_SNAPSHOT_OUTSIDE_ISOLATION")
@@ -345,7 +383,7 @@ class Verification:
         self.run("plugin-help", [binary, "plugin", "--help"], help_output=True)
         if self.client == "codex":
             registered = json_output(self.run("marketplace-add", [binary, "plugin", "marketplace", "add", PUBLIC_GIT,
-                                                                      "--ref", SOURCE, "--json"]))
+                                                                      "--ref", self.source, "--json"]))
             require(isinstance(registered, dict) and registered.get("marketplaceName") == "madang", "MARKETPLACE_NOT_REGISTERED")
             self.run("marketplace-list", [binary, "plugin", "marketplace", "list", "--json"])
             require(isinstance(registered.get("installedRoot"), str), "NATIVE_MARKETPLACE_SNAPSHOT_MISSING")
@@ -353,7 +391,7 @@ class Verification:
         else:
             # Claude's documented #ref is a branch/tag, not an arbitrary SHA.
             # Record the native Git snapshot actually fetched from the public
-            # default branch; verify each of the six payloads against SOURCE.
+            # default branch; verify selected payloads against the fixed reference.
             registered = json_output(self.run("marketplace-add", [binary, "plugin", "marketplace", "add",
                                                                       PUBLIC_GIT, "--json"]))
             require(isinstance(registered, dict) and registered.get("outcome") == "ok", "MARKETPLACE_NOT_REGISTERED")
@@ -364,7 +402,7 @@ class Verification:
             require(re.fullmatch(r"[0-9a-f]{40}", revision) is not None, "NATIVE_MARKETPLACE_REVISION_INVALID")
             self.receipt["nativeMarketplaceRevision"] = revision
         self.receipt["nativeMarketplaceRegistered"] = True
-        for name in PRODUCTS:
+        for name in self.products:
             reference = self.native_payload(snapshot, source, entries, name)
             verb = "add" if self.client == "codex" else "install"
             result = json_output(self.run("install-" + name, [binary, "plugin", verb, name + "@madang", "--json"]))
@@ -392,7 +430,7 @@ class Verification:
             self.native_payload(snapshot, source, entries, name)
             self.receipt["plugins"].append(plugin)
             self.receipt["installedAndListed"] = len(self.receipt["plugins"])
-        require(self.receipt["installedAndListed"] == 6, "INSTALLATION_DENOMINATOR_INCOMPLETE")
+        require(self.receipt["installedAndListed"] == len(self.products), "INSTALLATION_DENOMINATOR_INCOMPLETE")
         self.receipt["complete"] = True
 
     def cursor_capabilities(self, binary: str) -> None:
@@ -417,7 +455,7 @@ class Verification:
             # These exact commands/flags were advertised by current native
             # agent 2026.10.22-27dcf5f in run 41742477225. No account/login retry.
             self.run("cursor-marketplace-add", [binary, command.group(1), "marketplace", "add", PUBLIC_GIT,
-                                                 "--git-ref", SOURCE])
+                                                 "--git-ref", self.source])
             listing = json_output(self.run("cursor-marketplace-list", [binary, command.group(1), "marketplace",
                                                                          "list", "--format", "json"]))
             require(any(item.get("name") == "madang" or item.get("marketplaceName") == "madang"
@@ -428,15 +466,16 @@ class Verification:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--client", choices=INSTALLERS, required=True)
+    parser.add_argument("--product-set", choices=PRODUCT_SETS, default="madang-six-cae")
     args = parser.parse_args()
     require(os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted",
             "GITHUB_HOSTED_ONLY")
     require(os.environ.get("GITHUB_REPOSITORY") == REPOSITORY, "REPOSITORY_MISMATCH")
     root = Path(__file__).resolve().parents[1]
-    output = root / "results/client-install" / args.client
+    output = root / "results/client-install" / args.product_set / args.client
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="public-plugin-client-", dir=os.environ["RUNNER_TEMP"]) as directory:
-        verification = Verification(args.client, Path(directory), output)
+        verification = Verification(args.client, Path(directory), output, args.product_set)
         code = 1
         try:
             if args.client == "cursor":
@@ -461,7 +500,7 @@ def main() -> int:
                 verification.receipt["payloadSetDifference"] = error.difference
         finally:
             (output / "receipt.json").write_text(json.dumps(verification.receipt, ensure_ascii=False, indent=2) + "\n")
-        print(f"CLIENT_RESULT {args.client} installed={verification.receipt['installedAndListed']}/6 complete={verification.receipt['complete']}", flush=True)
+        print(f"CLIENT_RESULT {args.client} productSet={args.product_set} installed={verification.receipt['installedAndListed']}/{len(verification.products)} complete={verification.receipt['complete']}", flush=True)
         return code
 
 
