@@ -10,7 +10,7 @@ disable-model-invocation: true
 >
 > 작업간에 역할과 절차를 조율하는 데 지나치게 많은 자원을 사용하여 정작 목표달성을 늦추는 선택을 하지 마시오.
 
-이 두 원칙은 DEV.MADANG의 모든 스킬·역할 가이드·작업 절차를 해석할 때 최우선으로 적용한다. 단순한 작업은 현재 담당 에이전트가 바로 완료하고, 추가 역할·회의·계획·보고·승인은 목표 달성에 실제로 필요한 경우에만 둔다. 기존 권한·사용자 결정·근거·세션을 재사용하며, 역할을 배정하기 위한 역할이나 절차를 관리하기 위한 절차를 만들지 않는다. 협업은 혼자 처리하는 것보다 완료 시간이나 품질을 개선할 때만 사용한다. 운영 전환 후의 실제 사람 승인·접속 권한·실제 사람 시험은 지키되 그 밖의 새 승인 관문을 만들지 않는다.
+이 두 원칙은 DEV.MADANG의 모든 스킬·역할 가이드·작업 절차를 해석할 때 최우선으로 적용한다. 단순한 작업은 현재 담당 에이전트가 바로 완료하고, 추가 역할·회의·계획·보고·승인은 목표 달성에 실제로 필요한 경우에만 둔다. 기존 권한·사용자 결정·근거·세션을 재사용하며, 역할을 배정하기 위한 역할이나 절차를 관리하기 위한 절차를 만들지 않는다. 협업은 혼자 처리하는 것보다 완료 시간이나 품질을 개선할 때만 사용한다. 현재 DEV 정책이 `autonomous`이면 에이전트가 위임된 연결·자격·설정·Git·버킷 관리·백업·배포를 판단·승인·실행한다. `operational`이면 고정 범위에 대해 사람 확인을 한 번 받고 같은 범위의 검사·적용을 자동으로 잇는다. 환경명·서버 가동·예전 단계 이름으로 운영 전환 여부를 추정하지 않는다. 실제 도구 권한과 사람 시험·본인인증은 지킨다.
 
 # /dev-go [코드]
 
@@ -125,7 +125,7 @@ disable-model-invocation: true
 3. `record_lifecycle_role_assignment`로 roleId·engine·실제 executionRef·stageKey·status·expectedVersion·requestKey와 handoff를 기록한다. executionKind는 서버가 역할 카탈로그로 결정하므로 인자로 만들지 않는다. handoff에는 pmThreadRef/currentTask/handoffRef/latestInstruction/goal/authorizedScope/priorCompleted/excludedScope/nextTask/nextExecutionRef/files/branchSha/activeCommandCount/editingStopped만 사용하고, 질문·HEAD/remote/dirty는 해당 설명 필드에 정제해 요약한다. 도구 기록 자체를 subagent 실행으로 간주하지 않는다. Claude Code의 Agent, Codex의 협업/subagent, Cursor의 지원된 역할 호출을 실제로 사용한 뒤 결과 보고·evidenceIds·편집 종료·진행 명령·branch/HEAD/remote/dirty를 인계로 취합한다. 도구나 권한이 없으면 실제 호출 미확인을 남기며 성공을 꾸미거나 계정/요금/권한을 우회하지 않는다.
 4. 필요한 구현을 커밋→푸시→허용된 원격 배포→원격 검수하고 같은 이슈에 결과물·실제 environment/revision/caseId/kind의 증거를 연결한다. `report_lifecycle_stage`에 같은 runId/workflowVersion/stageKey, issueId, guideVersion/sourceDigest, **run에 고정된 wikiRefs**, artifactRefs/evidenceIds, 최신 expectedVersion과 UUID requestKey를 보낸다. 응답 유실이면 같은 입력/키로 재조회하며 외부 동작을 새로 실행하지 않는다.
 5. 필수 증거와 역할 결과가 모이면 `complete_lifecycle_stage`로 해당 reportId/evidenceIds를 보내 서비스의 기준별 coverage를 확인한다. progress=100·결정 답·역할 배정만으로 완료를 주장하지 않는다. 16단계의 실제 사람 시험은 사람이 직접 수행·기록한다. 17/18은 기존 허용 범위의 개선 반영·운영 지속 확인이며 새 일괄 승인 버튼·매 단계 새 사람 승인을 만들지 않는다.
-6. 한 단계 결과·남은 필수 개발/검수·사람 판단·재개용 run/stage/version/requestKey/operationRef를 보고해 이번 호출을 마친다. 전체 목표를 유효하게 위임받았다면 결과를 PM·상위 실행으로 돌려 그 실행이 다음 허용 단계·독립 작업을 계속하며, 이미 승인된 구체 작업에 같은 승인을 반복 요청하지 않는다. 위임된 일반 정보·작업 방향은 `answer_issue_decision`으로 현재 결정 version·선택 항목·판단 이유를 기록하고, 선택/승인 요청은 현재 대상에 맞는 추천과 이유를 먼저 보완한다. 미승인 정책·범위·비용·파괴적 영향의 결정, 실제 사람 Q40/16단계 시험·권한 확인·보호 입력은 같은 issueId에 필요한 항목만 요청하고 해당 의존 작업만 대기한다. 미연결 기능은 미구현으로 남기며 사람 승인이나 구 자격 경로로 대체하지 않는다. 중단 시 기존 executionRef/assignmentId로 interrupted 인계를 남기고 같은 run에서 재개한다. 다음 실행을 실제 만들지 않았으면 nextExecutionRef는 null이다.
+6. 한 단계 결과·남은 필수 개발/검수·사람 판단·재개용 run/stage/version/requestKey/operationRef를 보고해 이번 호출을 마친다. 전체 목표를 유효하게 위임받았다면 결과를 PM·상위 실행으로 돌려 그 실행이 다음 허용 단계·독립 작업을 계속하며, 이미 승인된 구체 작업에 같은 승인을 반복 요청하지 않는다. 위임된 일반 정보·작업 방향은 `answer_issue_decision`으로 현재 결정 version·선택 항목·판단 이유를 기록하고, 선택/승인 요청은 현재 대상에 맞는 추천과 이유를 먼저 보완한다. 미승인 정책·범위·비용·파괴적 영향의 결정, 실제 사람 Q40/16단계 시험·본인인증·현재 정책이 요구하는 사람 확인은 같은 issueId에 필요한 항목만 요청하고 해당 의존 작업만 대기한다. 미연결 기능은 미구현으로 남기며 사람 승인이나 구 자격 경로로 대체하지 않는다. 중단 시 기존 executionRef/assignmentId로 interrupted 인계를 남기고 같은 run에서 재개한다. 다음 실행을 실제 만들지 않았으면 nextExecutionRef는 null이다.
 
 ## 2. dev12.v1 다음 지시 받기
 
@@ -151,7 +151,7 @@ disable-model-invocation: true
 
 - `human_confirm`은 구 상태 이름이다. 프로젝트 메인은 현재 보고·검수 근거를 읽고 `review_stage({ project, stage, agentId, requestKey, reportId, decision, note })`로 approve/return을 기록한다. 실제 운영 전환·강제 완료는 해당 실행 관문을 따른다.
 - `human_decision`이면 현재 결정 version·선택지·근거를 읽고 `answer_stage_decision({ project, decisionId, agentId, requestKey, expectedVersion, answer, answerKey? })`로 답한다. 같은 이슈의 결정은 `answer_issue_decision`을 사용한다. 서브는 자신의 메인에게 question 메시지로 연결한다.
-- `human_input`은 실제 사람 시험·본인인증·보호 입력 등 필요한 수행 내용을 확인해 의존 작업만 대기한다. 계속할 독립 과업이 있으면 수행한다.
+- `human_input`은 실제 사람 시험·본인인증 등 필요한 수행 내용을 확인해 의존 작업만 대기한다. 계속할 독립 과업이 있으면 수행한다.
 - 같은 대기 상태를 반복해서 보고하지 않고 새 메시지·결정·결과가 있을 때만 이어간다.
 
 ### `not_started` — 시작 전
@@ -170,12 +170,12 @@ disable-model-invocation: true
 ## 4. 버전별 불확실성·결정 처리
 
 - dev12.v1은 자료에 없는 사실을 지어내지 않는다. 결정이 필요하면 기존 `ask_decision({ project, stage, question, contextMd?, options? })` 를 보내고 메인 에이전트가 근거를 검토해 `answer_stage_decision`으로 답한다. `options` 는 8개까지, `key` 는 `[a-z0-9_-]` 1~20자. 답은 다음 지시의 「답한 결정」에 실려 온다. 결정 요청은 일일 건수나 답변 대기 건수로 제한하지 않는다.
-- dev18.v1은 추가 자료 조회·고정 위키·담당 전문가 검토로 위임 범위의 판단을 진행한다. 실제 사람 수행·권한·보호 입력이나 사람만 결정할 차이가 남으면 준비된 내용과 영향·재개 조건을 같은 issueId의 결정·작업 기록으로 요청한다. 해당 의존 작업의 대기 상태와 계속할 독립 작업을 PM·상위 실행에 함께 인계한다.
+- dev18.v1은 추가 자료 조회·고정 위키·담당 전문가 검토로 위임 범위의 판단을 진행한다. 실제 사람 시험·본인인증이나 사람만 결정할 차이가 남으면 준비된 내용과 영향·재개 조건을 같은 issueId의 결정·작업 기록으로 요청한다. 해당 의존 작업의 대기 상태와 계속할 독립 작업을 PM·상위 실행에 함께 인계한다.
 - 잘못 물었으면 `cancel_decision({ project, decisionId, note? })`. 열린 결정은 `list_decisions({ project, status: "open" })` 로 본다.
 
 ## 5. 보호된 인프라 입력
 
-- 에이전트는 비밀이 담긴 인프라 원문·환경변수 값·초기 비밀번호·개인키를 읽거나 복사·파일저장·툴 인자로 전달하지 않는다. 비밀 없는 `docs/env/infra_info.md` 또는 사용자가 지정한 정리 문서는 공통 「환경정보 파일 확보와 등록 누락 보완」에 따라 사용한다. 신규 보호 입력은 일반 웹의 별도 보호 origin·재인증이 아직 미연결이며, 입력 금지 안내·요청 생성/조회/취소만으로 실제 입력·저장이 지원된다고 말하지 않는다.
+- 에이전트는 비밀이 담긴 인프라 원문·환경변수 값·초기 비밀번호·개인키를 읽거나 복사·파일저장·툴 인자로 전달하지 않는다. 비밀 없는 `docs/env/infra_info.md` 또는 사용자가 지정한 정리 문서는 공통 「환경정보 파일 확보와 등록 누락 보완」에 따라 사용한다. 연결·자격·설정은 현재 DEV 정책과 지원되는 보호 실행을 따른다. 요청 생성·조회·취소는 실제 입력·저장 근거와 구별한다.
 - 기존 연결 ID·자격 버전·환경 역할·정형 operation/receipt의 안전한 참조만 사용한다. 서버 내부 키 생성 등록도 실제 SSH·무비밀 빌드 완료와 구별한다. 준비·SSH·Git이 미구현/권한거부/unknown이면 같은 상태·요청·issueId를 보존하고, W02 신규 입력 UI의 미구현을 새 사람 승인으로 대신하거나 구 reveal/free-exec/수동 자격 파일을 대체 경로로 쓰지 않는다. 그 입력에 의존하지 않는 허용 작업은 계속한다.
 - 서버·저장소·도메인·배포 구조의 변경은 기존 유효 범위와 사람 결정 경계를 따른다. 새 비용·파괴적 영향·본인인증의 차이만 구체적으로 연결한다.
 
