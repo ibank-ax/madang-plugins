@@ -1,6 +1,6 @@
 {
   "generator": "asset-plugin-export-v1",
-  "sourceCommit": "b0877bbce3f8fdfc2e765c1243a076cb2de4be4f",
+  "sourceCommit": "0fdea43d8d92e4e30663efbc3b37e8af903ebf18",
   "files": [
     "claude/.claude-plugin/plugin.json",
     "claude/README.md",
