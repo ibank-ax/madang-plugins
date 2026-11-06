@@ -1,6 +1,6 @@
 # AIO.MADANG — aio@madang
 
-플러그인 버전 `0.1.0` · 제품 원천 커밋 `b3923ac55cb8a0573d626abb4d86c6e6bff7ddae`
+플러그인 버전 `0.1.0` · 제품 원천 커밋 `3b3abff429c695c439ab1fc92d89791233b6ded0`
 
 공개 마켓플레이스의 설치 패키지는 원격 HTTP MCP와 OAuth를 사용합니다. 기본 서버 이름은 `aio`, 주소는 `https://aio.madang.ai/mcp`입니다. 토큰 복사나 로컬 bridge 실행은 설치 조건이 아닙니다.
 
