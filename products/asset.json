@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "sourceCommit": "b0877bbce3f8fdfc2e765c1243a076cb2de4be4f",
+  "sourceCommit": "0fdea43d8d92e4e30663efbc3b37e8af903ebf18",
   "sourceRepository": "ibank-ax/asset.madang.ai",
   "platforms": [
     "claude",
@@ -9,30 +9,30 @@
   ],
   "packageProvenance": {
     "generator": "asset-plugin-export-v1",
-    "sourceTree": "f6a3e8d0b9f7df626a1cdc0aa7d24c4e9f9fb1af",
-    "integratedSourceCommit": "de7262736c21b3ea59f05485f37c91f07226f434",
-    "actualMergeCommit": "996cf9f2fa37023d06306fc1e918218e260cbe90",
+    "sourceTree": "9ade29bd080e85aba069438d0c3048f2e4c7ca9c",
+    "integratedSourceCommit": "27b8b107b224ac3b6fcaa4b38381f025d9d0964b",
+    "actualMergeCommit": "0fdea43d8d92e4e30663efbc3b37e8af903ebf18",
     "artifact": {
-      "id": 13276354699,
-      "workflowRunId": 41733262549,
-      "sha256": "3406228e63505ae96464bf3cb62c33f0d34c321b81c6e45ac0446190da006517"
+      "id": 13535804832,
+      "workflowRunId": 42284544672,
+      "sha256": "61505532f8ce3f1fc01a8f2eb44e2b72ff62213c6c033927c0bf6d816d97dd0f"
     },
     "files": {
-      ".asset-generated.json": "8f160a55c9c94608804ca96462151a595a1799ba747fd80988f1c3ebb863abaf",
+      ".asset-generated.json": "819bc350fd60a82e7b0b08dc4cf2ac6b434797a6c9911b75df9ff8e31408163f",
       "claude/.claude-plugin/plugin.json": "f593cbc408cbbffaa124333f05d4501219083dd0db67ab0d0a26d310e54d42b0",
-      "claude/README.md": "375034724bd83e7694c04cfe56825701a97f7c385b27190ff88c67e06a59a328",
+      "claude/README.md": "ea89c264ebdc238579dbfbb177bd805dfd60a94f255dfddc427f21eec985dbb6",
       "claude/skills/asset-search/SKILL.md": "5346e9cf9f5b8093ececd08019563a5360b2d605f33dcd05d36fbd37de7663a7",
-      "claude/source.json": "eec796c6d6ead455b76cadc1654edb326e5d893ed5ec0198836f84be862b52a9",
+      "claude/source.json": "309f2e80ced63a152b001b327644ff8f6ee8690afd684991049e325b33b2564c",
       "codex/.codex-plugin/plugin.json": "0280e073729cdc2a8bae0b4d242a3f7e841039208003b686906fb7bbd210f30a",
-      "codex/README.md": "eb0687260d492aac425cbfd938bcc0e3ba7bcfd7bfb78f2137c87469c0959665",
+      "codex/README.md": "bb368c91bf09af355b2e851e826bcceaecdd776a6a7926c3cbd14f1878b568e3",
       "codex/codex-mcp.json": "0f0c8238479839a93ea7ac22fbac0eadf4c34eb1cb2447e5aad48145f2764c90",
       "codex/skills/asset-search/SKILL.md": "5346e9cf9f5b8093ececd08019563a5360b2d605f33dcd05d36fbd37de7663a7",
-      "codex/source.json": "a38e2ed846c1a1b69fff0625f2e1ee9873085fa281c28819f5c8c9ddb665f15c",
+      "codex/source.json": "73c2845272764a86c5d9e0a13f64e138fd10d79d0e2f2c3ec7844d608d45f177",
       "cursor/.cursor-plugin/plugin.json": "4812e3cf5037115bfac83c95b3f0c1772072d53b666aba0375aff165f1d1a666",
-      "cursor/README.md": "5e5a5d1693b1c7f555baddca8ebcf2170a9bb4268f665d10c8b890ffaaa1ceee",
+      "cursor/README.md": "148908664400b1a32b56622ab4db4bab5357b43d499529ae9951eae32517d685",
       "cursor/mcp.json": "72430ef6eb00e54fc6e534cd0ee7dd28b0cebe736cb53e5c192c2dc340c526cb",
       "cursor/skills/asset-search/SKILL.md": "5346e9cf9f5b8093ececd08019563a5360b2d605f33dcd05d36fbd37de7663a7",
-      "cursor/source.json": "8f0fcfa5ee670d61d547463268e013a08edcc4fa47c107a0420fa87cc4661753"
+      "cursor/source.json": "26c8f37be2189309f65a8c34d29951d0aa8c5403d157bacc4705eae5d7733ea2"
     }
   }
 }
