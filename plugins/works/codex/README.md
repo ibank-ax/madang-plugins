@@ -2,7 +2,7 @@
 
 Version: 0.1.0
 
-Source commit: `d2557a08fef7eef0d06a90781f8506e98e959cc6`
+Source commit: `24ce7eca3904847214c66f362613a2df6afefed3`
 
 MCP: `https://works.madang.ai/mcp` — native HTTP + OAuth public client (`none`).
 
