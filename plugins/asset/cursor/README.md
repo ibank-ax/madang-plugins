@@ -1,6 +1,6 @@
 # ASSET.MADANG — cursor
 
-sourceCommit: b0877bbce3f8fdfc2e765c1243a076cb2de4be4f
+sourceCommit: 0fdea43d8d92e4e30663efbc3b37e8af903ebf18
 
 공개 MCP 주소: `https://asset.madang.ai/mcp`. 조직 주소·키·토큰·환경 변수 입력은 필요하지 않습니다.
 
