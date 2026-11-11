@@ -17,6 +17,8 @@ description: DEV.MADANG 의 실제 흐름 버전에 맞춰 한 호출에 한 단
 
 세션·수신함·회신은 `$dev-collaborate`를 함께 적용한다. 검토·결정은 사람 또는 프로젝트 메인 에이전트가 한다.
 
+**단계 보고 담당**: 개발 단계 보고·완료(`report_lifecycle_stage`·`complete_lifecycle_stage`·`report_stage_progress`·`request_stage_review`)는 프로젝트 대표 개발자(`get_project` 의 `members[].isPrimary`) 또는 `$dev-collaborate` 로 등록된 메인 에이전트만 한다. 그 밖의 연결은 현재 단계와 할 일만 안내하고 멈춘다(반복 실행도 같은 조건).
+
 ## 환경 역할
 
 - 환경 수는 사용자가 실제로 제공한 환경 수다(서버·URL·도메인 수가 아니다). 1개 → `prod`(dev·qa·ops 공유), 2개 → `staging`(dev·qa)·`prod`(ops), 3개 → `dev`·`staging`·`prod`. 사용자가 명시한 역할이 우선이고 불명확한 부분만 묻는다. 없는 환경을 만들거나 저장된 `env`·대상 ID·별칭(`test` 등)을 바꾸지 않는다. API 목적 키는 `development`·`verification`·`operations`.
@@ -44,7 +46,7 @@ description: DEV.MADANG 의 실제 흐름 버전에 맞춰 한 호출에 한 단
 
 ## 4. dev12.v1 한 단계
 
-- `get_next_directive` 나 `report_stage_progress` 가 없으면 「MCP 연결에 단계 보고 권한이 없어요 — /me/mcp 에서 연결을 끊고 다시 연결해 주세요」 출력 후 멈춘다.
+- `get_next_directive` 나 `report_stage_progress` 가 없으면 「MCP 연결에 단계 보고 권한이 없어요 — https://dev.madang.ai/me/mcp 에서 연결을 끊고 다시 연결해 주세요」 출력 후 멈춘다.
 - `get_next_directive({ project: "<코드>" })` → 지시문 + `{ stage, waitingFor, deliverables, openDecisions, nextStep, links: { plan }, referenceRunbooks }`(길면 `nextCursor`). MCP 호출은 토큰당 분당 120회, `get_next_directive`·`get_lifecycle` 은 분당 30회. 429 `RATE_LIMITED` 면 간격을 늘리라고 알리고 멈춘다.
 - `agent`: 보완 사유·답한 결정을 먼저 반영 → `docs/plan/` 결과물 작성·커밋·푸시 → `report_stage_progress({ project, stage, summary, progress, artifacts })`(시간당 20회) → 필수 항목이 끝나면 `request_stage_review({ project, stage, summary, bodyMd, artifacts, commitSha? })`. `HUMAN_INPUT_REQUIRED`(422)면 `blocked: { needs: "human_input", reason }` 으로 보고하고 멈춘다(그 밖은 `access`·`decision`·`other`, 풀리면 `blocked: null`).
 - `human_confirm`: 메인이 `review_stage({ project, stage, agentId, requestKey, reportId, decision, note })`. `human_decision`: `answer_stage_decision({ project, decisionId, agentId, requestKey, expectedVersion, answer, answerKey? })`. `human_input`: 사람 수행 대기, 독립 작업은 계속.
@@ -69,7 +71,8 @@ description: DEV.MADANG 의 실제 흐름 버전에 맞춰 한 호출에 한 단
 ### 정책별 순서
 
 - 정책은 서버 응답의 `deployPolicy`로 판단한다(env 이름·단계 번호로 추정 금지). 기본은 GitHub 고정 커밋 → 서버 정식 진입점 자동 배포이고, 연결이 없으면 미연결로 보고한다.
-- `deploy:write`가 없거나 배포 도구가 없으면 배포 의존 작업만 멈추고 「이 연결에는 배포 권한(deploy:write)이 없어요. /me/mcp에서 연결을 다시 인가하고 '배포 요청·실행'에 동의해 주세요」라고 보고한다. `infra_exec`·직접 SSH·로컬 키·일반 shell로 배포 권한·승인을 우회하지 않는다.
+- **배포 담당 확인(먼저)**: `get_project` 의 `myRoles`·`members[].isPrimary`·`policy.developerExecMode` 를 본다. 내가 플랫폼관리자(`myRoles` 에 admin)도 대표 개발자(`isPrimary`)도 아니고 `developerExecMode` 가 `ops` 가 아니면 운영 반영을 실행할 수 없다. 이때는 병합 뒤 `add_issue_comment` 로 「배포 대기 — PR #<번호> · merge <SHA>」를 남기고 멈추며, 사람에게는 「운영 반영은 대표 개발자 쪽에서 묶어서 해요」라고 안내한다(재인가를 권하지 않는다).
+- `deploy:write`가 없거나 배포 도구가 없으면 배포 의존 작업만 멈추고 「이 연결에는 배포 권한(deploy:write)이 없어요. https://dev.madang.ai/me/mcp 에서 연결을 다시 인가하고 '배포 요청·실행'에 동의해 주세요」라고 보고한다. `infra_exec`·직접 SSH·로컬 키·일반 shell로 배포 권한·승인을 우회하지 않는다.
 - 수정 요청이 있으면 PR 연결 직후 `report_fix_result`로 현재 결과를 먼저 저장한다(미검수 항목은 미확인). 요청이 닫힌 뒤의 추가 결과는 `add_issue_comment`.
 - `autonomous`: `attach_pull_request` → 고정 head 검토·`approve_pull_request({ issue, prId, expectedHeadSha, reviewSummary })` → 머지 → 실행 가능하면 `request_deployment`, 불가하면 표준 진입점에서 `record_agent_deployment` start → 배포 → finish → 원격 확인·`submit_issue_evidence` → 관문 통과 시 `update_issue_status` done. 머지 후속이 만든 deploymentId는 재사용하고 중복 배포하지 않는다. 비사람 pass 근거는 원천 검증 뒤 `agent_auto`로 자동 수락된다.
 - `operational`: PR이 있으면 `attach_pull_request`만, 없을 때만 `request_deployment`(중복 금지). 응답의 `deployPolicy`·`deployPolicyReasonCode`·`approvalId`를 확인하고(null이면 사유 보고·재조회) 사람 웹 승인 1회 뒤 `get_deployment`·`list_deployments`로 같은 요청을 읽는다. 실행 불가면 `approved_for_agent` 확인 뒤 start → 배포 → finish. 승인 bundle 근거와 승인된 이슈 집합·env·검증 commit(서버 확인 별칭 포함)·비사람 kind의 배포 후 근거는 재검증 뒤 `approval_bundle`로 수락되고, operations 배포·health·관문 통과 뒤 서버가 완료한다.
