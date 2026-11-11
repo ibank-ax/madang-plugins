@@ -52,7 +52,7 @@ DEV.MADANG 에 등록된 검수 이슈 `<이슈번호>` 를 처리한다. 사람
 
 ## 6. PR
 
-- 커밋 `fix(<이슈번호>): <한 줄 요약>`(본문에 원인과 `Madang-Issue: <이슈번호>`) → 작업 브랜치 게시 → `gh pr create --title "<이슈번호> <제목>" --label madang --body-file .madang/<이슈번호>/pr.md`(## 원인 / ## 변경 / ## 검증 / ## 미해결, 첫 줄에 이슈 주소).
+- 커밋 `fix(<이슈번호>): <한 줄 요약>`(본문에 원인과 `Madang-Issue: <이슈번호>`) → 작업 브랜치 게시 → `gh pr create --title "<이슈번호> <제목>" --body-file .madang/<이슈번호>/pr.md`(## 원인 / ## 변경 / ## 검증 / ## 미해결, 첫 줄에 이슈 주소). 저장소에 `madang` 라벨이 있을 때만(`gh label list --search madang`) `--label madang` 을 붙인다.
 - `attach_pull_request({ issue: "<이슈번호>", prUrl })` 로 연결하고 응답의 `deployPolicy`·`deployPolicyReasonCode`·`approvalId`를 읽는다. PR이 있으면 별도 `request_deployment`로 같은 배포를 중복 요청하지 않는다.
 
 ## 7. 완료 전에 결과 보고
@@ -71,7 +71,8 @@ DEV.MADANG 에 등록된 검수 이슈 `<이슈번호>` 를 처리한다. 사람
 ### 정책별 순서
 
 - 정책은 서버 응답의 `deployPolicy`로 판단한다(env 이름·단계 번호로 추정 금지). 기본은 GitHub 고정 커밋 → 서버 정식 진입점 자동 배포이고, 연결이 없으면 미연결로 보고한다.
-- `deploy:write`가 없거나 배포 도구가 없으면 배포 의존 작업만 멈추고 「이 연결에는 배포 권한(deploy:write)이 없어요. /me/mcp에서 연결을 다시 인가하고 '배포 요청·실행'에 동의해 주세요」라고 보고한다. `infra_exec`·직접 SSH·로컬 키·일반 shell로 배포 권한·승인을 우회하지 않는다.
+- **배포 담당 확인(먼저)**: `get_project` 의 `myRoles`·`members[].isPrimary`·`policy.developerExecMode` 를 본다. 내가 플랫폼관리자(`myRoles` 에 admin)도 대표 개발자(`isPrimary`)도 아니고 `developerExecMode` 가 `ops` 가 아니면 운영 반영을 실행할 수 없다. 이때는 병합 뒤 `add_issue_comment` 로 「배포 대기 — PR #<번호> · merge <SHA>」를 남기고 멈추며, 사람에게는 「운영 반영은 대표 개발자 쪽에서 묶어서 해요」라고 안내한다(재인가를 권하지 않는다).
+- `deploy:write`가 없거나 배포 도구가 없으면 배포 의존 작업만 멈추고 「이 연결에는 배포 권한(deploy:write)이 없어요. https://dev.madang.ai/me/mcp 에서 연결을 다시 인가하고 '배포 요청·실행'에 동의해 주세요」라고 보고한다. `infra_exec`·직접 SSH·로컬 키·일반 shell로 배포 권한·승인을 우회하지 않는다.
 - 수정 요청이 있으면 PR 연결 직후 `report_fix_result`로 현재 결과를 먼저 저장한다(미검수 항목은 미확인). 요청이 닫힌 뒤의 추가 결과는 `add_issue_comment`.
 - `autonomous`: `attach_pull_request` → 고정 head 검토·`approve_pull_request({ issue, prId, expectedHeadSha, reviewSummary })` → 머지 → 실행 가능하면 `request_deployment`, 불가하면 표준 진입점에서 `record_agent_deployment` start → 배포 → finish → 원격 확인·`submit_issue_evidence` → 관문 통과 시 `update_issue_status` done. 머지 후속이 만든 deploymentId는 재사용하고 중복 배포하지 않는다. 비사람 pass 근거는 원천 검증 뒤 `agent_auto`로 자동 수락된다.
 - `operational`: PR이 있으면 `attach_pull_request`만, 없을 때만 `request_deployment`(중복 금지). 응답의 `deployPolicy`·`deployPolicyReasonCode`·`approvalId`를 확인하고(null이면 사유 보고·재조회) 사람 웹 승인 1회 뒤 `get_deployment`·`list_deployments`로 같은 요청을 읽는다. 실행 불가면 `approved_for_agent` 확인 뒤 start → 배포 → finish. 승인 bundle 근거와 승인된 이슈 집합·env·검증 commit(서버 확인 별칭 포함)·비사람 kind의 배포 후 근거는 재검증 뒤 `approval_bundle`로 수락되고, operations 배포·health·관문 통과 뒤 서버가 완료한다.
@@ -91,6 +92,7 @@ DEV.MADANG 에 등록된 검수 이슈 `<이슈번호>` 를 처리한다. 사람
 - 완료 = 인정 배포(env·commit·purpose 일치) + 모든 작업 done·필수 근거 + operation 종결. unknown·reconciling operation은 reconcile 먼저. 당시 autonomous 정책의 agent_policy 인정 배포는 소급 무효화하지 않는다.
 - 완료 후속은 `nextAction`·`reasonCode`를 따른다. `await_human_completion` + `deployment_health_unconfirmed`면 `update_issue_status` done을 호출하지 않고 사람 완료 대기와 이유를 보고한다. `request_deployment` + `operations_deployment_required`면 현재 매핑의 운영 배포로 잇는다. 공유 env는 매핑 미해석 시 선언 purpose만 사용한다. `resolve_blockers`는 차단 사유를 해소한 뒤 재조회한다.
 - 17/18단계는 operations env의 같은 revision 인정 배포와 실제 사람 시험 근거가 필요하고, 18단계 완료 즉시 `operational`이 된다.
+- 배포 담당이 아니면(위 「배포 담당 확인」) 병합 뒤 「배포 대기」 댓글을 남기고 여기서 멈춘다.
 - 자율 배포 완료: `update_issue_status({ issue: "<이슈번호>", status: "done" })`.
 
 ## 9. 완료 후 추가 기록
