@@ -32,8 +32,7 @@ DEV.MADANG 프로젝트 기록을 IDE 사이의 통신 채널로 쓴다. 역할�
 
 - 검토 승인·보완·일반 결정은 사람 또는 현재 프로젝트 메인이 근거·판본·이유와 함께 기록한다. dev12 는 `review_stage`·`answer_stage_decision`, dev18 은 `complete_lifecycle_stage` 관문, 이슈 결정은 `answer_issue_decision`, 핵심 규칙은 `confirm_project_business_rules`.
 - `autonomous` 에서는 커밋·PR·`approve_pull_request`·병합·배포까지 자율 처리하고, `operational` 뒤에는 사람 승인으로 돌아간다. 실제 사람 시험을 에이전트 검토로 대체하지 않는다.
-- 배포는 배포 담당(플랫폼관리자·대표 개발자, 또는 정책 `developerExecMode` 가 `ops`)만 한다. 그 밖의 연결은 병합 뒤 `add_issue_comment` 로 「배포 대기 — PR #<번호> · merge <SHA>」를 남기고 멈추며 「운영 반영은 대표 개발자 쪽에서 묶어서 해요」라고 안내한다.
-- 개발 단계 보고·완료(`report_lifecycle_stage`·`complete_lifecycle_stage`)는 대표 개발자 또는 등록된 메인 에이전트만 한다.
+- 운영 전환 전에는 프로젝트 developer 누구나 배포·단계 진행까지 한다. 같은 단계를 여러 연결이 동시에 보고하지 않도록 `/dev:collaborate` 수신함으로 맡은 범위를 나눈다. 운영 전환 뒤의 승인은 메인(대표) 개발자가 웹에서 한다.
 
 ## 4. 재개와 대기
 
