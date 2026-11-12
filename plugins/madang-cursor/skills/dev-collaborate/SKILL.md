@@ -19,7 +19,7 @@ DEV.MADANG 프로젝트 기록을 IDE 사이의 통신 채널로 쓴다. 역할�
 ## 1. 세션 연결
 
 1. 인자 또는 `.madang/project.json` 의 프로젝트를 `get_project` 로 확인한다. 다른 프로젝트의 기록을 섞지 않는다.
-2. IDE 가 그 세션을 다시 찾을 때 쓰는 값을 `<ide>:<id>` 형식의 `sessionRef` 로 쓴다 — Claude Code 는 세션 식별값(`claude-code:<세션 id>`), Codex 는 스레드 식별값(`codex:<스레드 id>`). 읽을 수 없을 때만 UUID 하나를 만들어 재사용하며, 그 세션은 응답체크의 지정 전달 대상이 되지 않는다. 토큰·해시·인증 저장소는 읽거나 보내지 않는다.
+2. IDE 가 그 세션을 다시 찾을 때 쓰는 값을 `<ide>:<id>` 형식의 `sessionRef` 로 쓴다 — Claude Code 는 세션 식별값(`claude-code:<세션 id>`; 데스크톱 앱은 `get_session("self")` 의 sessionId `local_<id>` 를 쓴다. CLI 내부 id 를 쓰면 응답체크가 이 세션을 찾지 못한다), Codex 는 스레드 식별값(`codex:<스레드 id>`). 읽을 수 없을 때만 UUID 하나를 만들어 재사용하며, 그 세션은 응답체크의 지정 전달 대상이 되지 않는다. 토큰·해시·인증 저장소는 읽거나 보내지 않는다.
 3. `register_project_agent`(project·UUID requestKey·sessionRef·displayName·role main/subagent/peer·engine·model, 서브는 parentAgentId)로 등록하고 받은 agentId 를 재사용한다. 같은 커넥터를 공유한 서브세션을 독립된 인증 주체로 표시하지 않는다.
 
 ## 2. 수신과 회신
@@ -40,7 +40,7 @@ DEV.MADANG 프로젝트 기록을 IDE 사이의 통신 채널로 쓴다. 역할�
 5. 후속 작업이 따로 끝나면 `result` 를 요청한 세션의 agentId 지정으로 보낸다.
 6. 다른 범위에 막혔으면 자기 PM 에게만 올리지 말고 그 범위 담당의 agentId 로 직접 묻는다(`list_project_agents` 에서 그 사람의 아무 세션이나 고르면 계정으로 전달된다). 담당을 모르면 받는 쪽 없이 올린다(프로젝트마다 1시간 10건까지). 의존 요청의 `kind` 는 `question` 으로 쓴다(`plan`·`handoff` 는 자동으로 표시되지 않는다). 같은 계정의 자기 PM 에게 답을 받아야 하면 PM 의 agentId 를 지정하고 `requestTag: "request"` 를 명시한다.
 7. 근거는 다른 PC 에서도 열 수 있는 것으로 적는다(커밋·PR·DEV 이슈·서버에 보관한 근거). 자기 PC 의 로컬 경로만 적지 않는다.
-8. 이 PC 에서 10분마다 자동으로 확인하려면 `/dev-watch` 로 체크 실행을 하나 만든다.
+8. 이 PC 에서 10분마다 자동으로 확인하려면 `/dev-watch` 로 체크 실행을 하나 만든다. 체크 실행이 넘긴 번호를 받은 세션은 `get_agent_message` 로 읽고, 자기가 답할 수 있으면 답하고, 다른 세션의 일이면 그 세션에 번호만 넘긴다. 기본 수신 세션은 받는 세션을 특정할 수 없는 건도 받는다.
 
 ## 3. 메인의 검토와 결정
 
