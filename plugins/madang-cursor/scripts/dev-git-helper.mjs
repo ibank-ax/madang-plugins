@@ -200,7 +200,8 @@ export class DevGitApi {
 
 /** Native Codex JSON-RPC, without a model turn or extraction of an OAuth credential.
  * The one ephemeral thread exists only in this owned child process. It is never resumed,
- * persisted, sent a user message, or used for any MCP tool other than git_transfer.
+ * persisted or sent a user message. It calls only the one MCP tool its owner names
+ * (git_transfer here; dev-watch.mjs uses it for the read-only check_my_agent_requests).
  */
 export class CodexGitBridge {
   constructor(options) {
@@ -278,7 +279,7 @@ export class CodexGitBridge {
     this.process.once('exit', () => this.rejectAll(stop.signal.aborted ? 'HELPER_INTERRUPTED' : 'IDE_BRIDGE_UNAVAILABLE'));
     this.onAbort = () => { this.rejectAll('HELPER_INTERRUPTED'); this.process?.kill('SIGTERM'); };
     stop.signal.addEventListener('abort', this.onAbort, { once: true });
-    await this.rpc('initialize', { clientInfo: { name: 'dev-git-helper', version: '1.0' }, capabilities: { experimentalApi: true } });
+    await this.rpc('initialize', { clientInfo: { name: this.options.clientName ?? 'dev-git-helper', version: '1.0' }, capabilities: { experimentalApi: true } });
     this.send({ jsonrpc: '2.0', method: 'initialized' });
     const started = await this.rpc('thread/start', { ephemeral: true, cwd: await realpath(os.tmpdir()), approvalPolicy: 'never', sandbox: 'read-only' });
     need(record(started?.thread) && UUID.test(started.thread.id) && started.thread.path === null
@@ -288,7 +289,7 @@ export class CodexGitBridge {
     const servers = Array.isArray(status?.data) ? status.data : [];
     need(servers.length === 1 && servers[0].name === this.server && String(servers[0].authStatus).toLowerCase().replace(/_/g, '') === 'oauth'
       && (!servers[0].httpOrigin || servers[0].httpOrigin === this.origin), 'IDE_REAUTH_REQUIRED');
-    need(record(servers[0].tools) && Object.hasOwn(servers[0].tools, 'git_transfer'), 'IDE_TRANSFER_TOOL_UNAVAILABLE');
+    need(record(servers[0].tools) && Object.hasOwn(servers[0].tools, this.options.requiredTool ?? 'git_transfer'), 'IDE_TRANSFER_TOOL_UNAVAILABLE');
   }
   async transfer(projectId, request) {
     await this.start(); need(!stop.signal.aborted, 'HELPER_INTERRUPTED');

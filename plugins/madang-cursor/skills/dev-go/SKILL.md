@@ -73,6 +73,7 @@ disable-model-invocation: true
 
 - 정책은 서버 응답의 `deployPolicy`로 판단한다(env 이름·단계 번호로 추정 금지). 기본은 GitHub 고정 커밋 → 서버 정식 진입점 자동 배포이고, 연결이 없으면 미연결로 보고한다.
 - **누가 배포하나**: 운영 전환 전(`autonomous`)에는 프로젝트 developer 누구나 자기 연결(`deploy:write`)로 `request_deployment` 해서 등록된 정식 진입점까지 실행한다(대표 개발자·서버 운영 창을 기다리지 않는다). 운영 전환 뒤(`operational`)에는 같은 요청이 메인(대표) 개발자의 웹 승인을 기다리며, 승인은 메인 개발자만 할 수 있다. 프로젝트 숨김·삭제도 메인 개발자만 한다.
+- `request_deployment`가 `DEPLOY_NOT_EXECUTABLE`(사유 `CREDENTIAL_USE_NOT_REGISTERED`·`DEPLOY_METHOD_MANUAL`)이면 그 제품에 등록된 배포 진입점이 없다는 뜻이다. 이 연결에 서버 실행 권한이 없으면 `/dev:collaborate`로 그 프로젝트의 메인 에이전트에 대상 SHA·마이그레이션 유무·확인 항목을 적어 배포를 요청하고(요청 표시) 그 배포 의존 작업만 멈춘다. `infra_exec`·직접 SSH로 우회하지 않는다.
 - `deploy:write`가 없거나 배포 도구가 없으면 배포 의존 작업만 멈추고 「이 연결에는 배포 권한(deploy:write)이 없어요. https://dev.madang.ai/me/mcp 에서 연결을 다시 인가하고 '배포 요청·실행'에 동의해 주세요」라고 보고한다. `infra_exec`·직접 SSH·로컬 키·일반 shell로 배포 권한·승인을 우회하지 않는다.
 - 수정 요청이 있으면 PR 연결 직후 `report_fix_result`로 현재 결과를 먼저 저장한다(미검수 항목은 미확인). 요청이 닫힌 뒤의 추가 결과는 `add_issue_comment`.
 - `autonomous`: `attach_pull_request` → 고정 head 검토·`approve_pull_request({ issue, prId, expectedHeadSha, reviewSummary })` → 머지 → 실행 가능하면 `request_deployment`, 불가하면 표준 진입점에서 `record_agent_deployment` start → 배포 → finish → 원격 확인·`submit_issue_evidence` → 관문 통과 시 `update_issue_status` done. 머지 후속이 만든 deploymentId는 재사용하고 중복 배포하지 않는다. 비사람 pass 근거는 원천 검증 뒤 `agent_auto`로 자동 수락된다.
