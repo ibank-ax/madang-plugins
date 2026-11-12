@@ -1,6 +1,6 @@
 ---
 name: dev-watch
-description: 다른 개발자·세션이 내 앞으로 남긴 요청·보고를 10분마다 확인하는 체크 스크립트를 이 PC 에 설치해요. 모델을 띄우지 않고, 건이 있을 때만 메시지 번호를 작업 세션에 넘겨요.
+description: 다른 개발자·세션이 내 앞으로 남긴 요청·보고를 10분마다 확인하는 체크 스크립트를 이 PC 에 설치해요. 확인에는 모델을 띄우지 않고, 건이 있을 때만 메시지 번호를 작업 세션에 넘겨요.
 disable-model-invocation: true
 ---
 
@@ -16,19 +16,12 @@ disable-model-invocation: true
 
 DEV.MADANG 에이전트 채널에서 내 계정 앞으로 온 요청·보고를 놓치지 않게, 이 PC 에 **모델 없는 체크 스크립트**를 둔다. 스크립트는 10분마다 기존 IDE 의 DEV 로그인으로 `check_my_agent_requests` 를 한 번 부르고, 건이 없으면 아무것도 하지 않는다. 건이 있으면 고정 문구와 메시지 번호만 작업 세션에 넘긴다. 답하고 닫는 일은 작업 세션이 `/dev-collaborate` 절차로 한다.
 
-## 1. 먼저 확인
-
-1. `check_my_agent_requests` 도구가 보이는지 확인한다. 없으면 「서버가 아직 지원하지 않음」으로 알리고 멈춘다.
-2. 모델 방식 체크 실행(2.16.x 에서 만든 예약 작업 `devmadang-response-check`, `devmadang-response-check-2` 등)이 있으면 **먼저 끄고 지운다**. 두 방식이 함께 돌면 같은 건이 두 번 전달되고 모델 토큰도 계속 쓴다.
-3. 스크립트가 이미 설치돼 있으면 `status` 로 상태를 본다(4절 명령). `installedScriptVersion` 이 플러그인 사본의 `version` 출력과 다르면 같은 인자로 `install` 을 다시 해 새 판으로 바꾼다(watcher 는 그대로 유지된다). 같으면 새로 설치하지 않는다.
-4. 처음 설치하면 그 순간 이 계정 앞에 열려 있는 건이 모두 「새 건」으로 한 번에 넘어온다(대개 기본 수신 세션으로). 다른 사람이 보낸 실제 건이 섞이므로, 기본 수신 세션은 사용자가 지금 일하는 세션으로 정하고 시험용 세션으로 정하지 않는다.
-5. 스크립트를 쓰는 조건: macOS, Node.js 22 이상, 이 IDE 에서 DEV 연결이 로그인된 상태. 조건이 맞지 않으면 설치하지 않고 자기 확인(세션 시작·재개 때 `list_my_open_agent_requests`)만 쓴다고 알린다.
-
-## 2. Cursor
+## 1. Cursor
 
 Cursor 는 바깥에서 대화를 깨우는 수단이 없어 체크 스크립트를 설치하지 않는다. 대신 이 대화 안에서 확인을 반복한다:
 1. 이 대화에서 `/loop 10m` 으로 `list_my_open_agent_requests` 를 부르고, 건이 없으면 「없음」 한 줄로 끝내게 한다. 건이 있으면 `/dev-collaborate` 절차로 읽고 답하거나 닫는다.
 2. 반복할 때마다 이 대화의 문맥이 쌓이고 모델 사용량을 쓴다. 긴 간격의 `/loop` 는 멈출 수 있으니 대화를 다시 열 때 계속 도는지 확인한다.
+3. 같은 계정으로 Claude Code·Codex 에도 체크 스크립트를 설치했다면, 받는 쪽 없는 건은 그쪽 한 곳이 받는다. 이 대화는 자기 앞 건만 처리한다.
 
 ## 3. 넘겨받은 세션이 할 일
 
@@ -39,9 +32,3 @@ Cursor 는 바깥에서 대화를 깨우는 수단이 없어 체크 스크립트
 ```
 
 받은 세션은 `get_agent_message` 로 읽고 `/dev-collaborate` 절차로 답하거나 닫는다. 자기 일이 아니면 맞는 세션에 번호만 넘긴다.
-
-## 4. 상태·끄기
-
-- 상태: `node ~/.madang-dev-watch/<claude|codex>/dev-watch.mjs status --ide <claude|codex>` — 주기 등록 여부, 마지막 실행 결과, 연속 실패, 못 넘긴 건 수. `attention` 이 비어 있지 않으면 사유대로 고친다: `IDE_REAUTH_REQUIRED` 는 IDE 에서 DEV 연결 재인증, `DELIVERY_FAILING` 은 기본 수신 세션이 닫힌 것이므로 지금 세션으로 `install --default-session <id>` 를 다시 한다, `SCHEDULE_NOT_LOADED`·`NOT_RUNNING` 은 `install` 을 다시 한다.
-- 실패는 `~/.madang-dev-watch/<ide>/log.jsonl` 에 정형 코드로 남는다. 토큰 값은 어디에도 남지 않는다.
-- 끄기·지우기: `node ~/.madang-dev-watch/<claude|codex>/dev-watch.mjs uninstall --ide <claude|codex>` — launchd 등록과 설치 폴더를 지운다. 서버의 watcher 기록은 계정당 최근 10개만 남고 오래된 것은 자동으로 지워진다.
