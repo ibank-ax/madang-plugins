@@ -21,15 +21,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const PROJECT_CODE = /^[A-Z0-9][A-Z0-9_-]{0,19}$/;
 const IDES = ['claude', 'codex'];
 const WATCHER_PREFIX = { claude: 'claude-code', codex: 'codex' };
-export const SCRIPT_VERSION = 3;
-const REFRESH_EVERY_MS = 30 * 60_000;
+export const SCRIPT_VERSION = 4;
 const PENDING_MAX = 200, PENDING_DAYS = 7, LOG_MAX = 256 * 1024, PAGES = 5, LOCK_STALE_MS = 15 * 60_000;
 const fail = code => Object.assign(new Error(code), { safeCode: code });
 const need = (ok, code) => { if (!ok) throw fail(code); };
 const record = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const HELP = `DEV.MADANG 응답체크 스크립트 — Node.js 22 이상(macOS 주기 실행).
 
-  node dev-watch.mjs install --ide claude|codex --origin https://dev.madang.ai --default-session <id> [--server <MCP 서버 이름>] [--interval 600]
+  node dev-watch.mjs install --ide claude|codex --origin https://dev.madang.ai --default-session <id> --unaddressed receive|skip\n      [--server <MCP 서버 이름>] [--interval 600] [--watcher <옛 watcher 값>]
   node dev-watch.mjs run --ide claude|codex      한 번 확인(주기 실행이 부른다)
   node dev-watch.mjs status --ide claude|codex   설치 상태와 마지막 결과
   node dev-watch.mjs uninstall --ide claude|codex 주기 실행을 끄고 설치 파일을 지운다
@@ -67,12 +66,18 @@ export function sanitizeItems(items) {
   }
   return out;
 }
-/** targetSessionRef 를 그 IDE 의 세션 id 로 바꾼다. 다른 형식이면 null(기본 수신 세션으로). */
-export function targetOf(ide, ref) {
-  if (!ref) return null;
-  if (ide === 'claude') { const m = /^claude-code:(local_)?([0-9a-f-]{36})$/.exec(ref); return m && UUID.test(m[2]) ? `${m[1] ?? ''}${m[2]}` : null; }
-  const m = /^codex:([0-9a-f-]{36})$/.exec(ref); return m && UUID.test(m[1]) ? m[1] : null;
+/** targetSessionRef 가 어느 IDE 의 것인지 가른다. 한 건은 한 계정에서 한 곳에만 가야 한다(F1).
+ * mine: 이 IDE 의 세션으로 바로 / other: 다른 IDE 의 확인기가 맡으므로 건너뜀 / unaddressed: 지정 없음(계정에서 한 곳만 받는다). */
+export function route(ide, ref) {
+  if (!ref) return { kind: 'unaddressed' };
+  const family = /^claude(-code)?:/.test(ref) ? 'claude' : /^codex:/.test(ref) ? 'codex' : null;
+  if (family && family !== ide) return { kind: 'other' };
+  if (ide === 'claude') { const m = /^claude-code:(local_)?([0-9a-f-]{36})$/.exec(ref); if (m && UUID.test(m[2])) return { kind: 'mine', to: `${m[1] ?? ''}${m[2]}` }; }
+  else { const m = /^codex:([0-9a-f-]{36})$/.exec(ref); if (m && UUID.test(m[1])) return { kind: 'mine', to: m[1] }; }
+  return { kind: 'unaddressed' }; // 이 IDE 의 옛 형식(claude:<uuid> 등)이나 알 수 없는 형식
 }
+/** 시험 호환용: 이 IDE 세션 id 만 돌려준다. */
+export function targetOf(ide, ref) { const r = route(ide, ref); return r.kind === 'mine' ? r.to : null; }
 export function validSession(ide, value) {
   return typeof value === 'string' && (ide === 'claude' ? UUID.test(value.replace(/^local_/, '')) : UUID.test(value));
 }
@@ -88,10 +93,12 @@ export function mergePending(pending, items, now = Date.now()) {
   return Object.assign(kept, { dropped: dropped + all.length - kept.length });
 }
 /** 받을 세션·프로젝트별로 묶는다. 대상 세션이 없거나 형식이 다르면 기본 수신 세션. */
-export function planDelivery(ide, entries, defaultSession) {
+export function planDelivery(ide, entries, defaultSession, receiveUnaddressed = true) {
   const groups = new Map();
   for (const e of entries) {
-    const to = targetOf(ide, e.targetSessionRef) ?? defaultSession, key = `${to}\n${e.projectCode}`;
+    const r = route(ide, e.targetSessionRef);
+    if (r.kind === 'other' || (r.kind === 'unaddressed' && !receiveUnaddressed)) continue;
+    const to = r.kind === 'mine' ? r.to : defaultSession, key = `${to}\n${e.projectCode}`;
     if (!groups.has(key)) groups.set(key, { to, projectCode: e.projectCode, entries: [] });
     groups.get(key).entries.push(e);
   }
@@ -163,15 +170,6 @@ function checker(ide, config) {
   if (ide === 'claude') return { check: args => checkClaude(config, args), close: async () => {} };
   return codexChecker(config);
 }
-/** Claude 로그인(1시간)이 만료되면 Claude Code 자체 CLI 가 스스로 갱신하게 한 번 시도한다.
- * 스크립트는 토큰을 쓰거나 갱신하지 않는다. 모델을 부르지 않는 `claude mcp list` 만 실행하고 30분에 한 번까지만 한다. */
-async function refreshClaudeLogin(config, state) {
-  if (!config.claudeCommand || Date.now() - Date.parse(state.lastRefreshAt ?? 0) < REFRESH_EVERY_MS) return 'skipped';
-  state.lastRefreshAt = new Date().toISOString();
-  const done = await new Promise(resolve => execFile(config.claudeCommand, ['mcp', 'list'], { cwd: os.tmpdir(), timeout: 90_000, maxBuffer: 1024 * 1024, windowsHide: true },
-    error => resolve(!error)));
-  return done ? 'attempted' : 'failed';
-}
 function codexChecker(config) {
   // 주기 실행의 PATH 는 최소값이라 helper 의 `which codex` 가 설치 때 찾은 codex 를 보게 한다(한 번만).
   const dir = config.codexCommand ? path.dirname(config.codexCommand) : null;
@@ -219,9 +217,10 @@ async function sendCodex(config, to, text) {
   need(UUID.test(to) && config.codexCommand, 'SESSION_NOT_FOUND');
   const queued = await run(config.codexCommand, ['queue', '--thread', to, '--message', text]);
   need(queued.code === 0, 'CODEX_QUEUE_FAILED');
-  if (process.platform !== 'darwin') return { wake: 'skipped' };
+  // Codex 의 delivered 는 「큐 등록」이다. 실행 중인 스레드는 지금 턴이 끝난 뒤 실행된다.
+  if (process.platform !== 'darwin') return { queued: true, wake: 'skipped' };
   const woke = await run('/usr/bin/open', ['-g', `codex://threads/wake/${to}`], 10_000);
-  return woke.code === 0 ? {} : { wake: 'failed' }; // 큐에는 들어갔다. 스레드가 다시 열릴 때 실행된다
+  return woke.code === 0 ? { queued: true } : { queued: true, wake: 'failed' }; // 큐에는 들어갔다. 스레드가 다시 열릴 때 실행된다
 }
 
 // ---------- 명령 ----------
@@ -234,6 +233,8 @@ export async function runOnce(ide, { dir = homeDir(ide) } = {}) {
     let state = {};
     try { state = (await readJson(path.join(dir, 'state.json'))) ?? {}; } catch (error) { entry.stateReset = error.safeCode ?? 'STATE_UNREADABLE'; }
     let items = [];
+    // Codex app-server 의 작업 폴더가 공용 /tmp 가 되지 않게 설치 폴더 안의 전용 폴더를 쓴다(R5).
+    const tmp = path.join(dir, 'tmp'); await mkdir(tmp, { recursive: true, mode: 0o700 }); process.env.TMPDIR = tmp;
     const source = checker(ide, config);
     try {
       for (let page = 0; page < PAGES; page++) {
@@ -244,23 +245,13 @@ export async function runOnce(ide, { dir = homeDir(ide) } = {}) {
       entry.ok = true;
     } catch (error) { entry.code = error.safeCode ?? 'CHECK_RESULT_UNKNOWN'; }
     finally { await source.close().catch(() => {}); }
-    if (!entry.ok && ide === 'claude' && entry.code === 'IDE_REAUTH_REQUIRED') {
-      entry.refresh = await refreshClaudeLogin(config, state);
-      if (entry.refresh === 'attempted') {
-        try {
-          for (let page = 0; page < PAGES; page++) {
-            const value = await checkClaude(config, { watcher: config.watcher, limit: 50 });
-            items = items.concat(sanitizeItems(value.items)); if (!value.hasMore) break;
-          }
-          entry.ok = true; delete entry.code;
-        } catch (error) { entry.code = error.safeCode ?? 'CHECK_RESULT_UNKNOWN'; }
-      }
-    }
     entry.received = items.length;
     const merged = mergePending(state.pending, items);
     if (merged.dropped) entry.dropped = merged.dropped;
     const left = [];
-    for (const group of planDelivery(ide, merged, config.defaultSession)) {
+    const skipped = merged.filter(e => { const r = route(ide, e.targetSessionRef); return r.kind === 'other' || (r.kind === 'unaddressed' && config.unaddressed === 'skip'); });
+    if (skipped.length) entry.skipped = skipped.length;
+    for (const group of planDelivery(ide, merged, config.defaultSession, config.unaddressed !== 'skip')) {
       const ids = group.entries.map(e => e.messageId), text = PHRASE(group.projectCode, ids);
       const send = to => ide === 'claude' ? sendClaude(to, text) : sendCodex(config, to, text);
       const record_ = (to, extra) => entry.delivered.push({ to, project: group.projectCode, ids, ...extra });
@@ -273,13 +264,14 @@ export async function runOnce(ide, { dir = homeDir(ide) } = {}) {
     }
     entry.pending = left.length;
     const deliveryFailures = entry.failed?.length && left.length ? (state.deliveryFailures ?? 0) + 1 : 0;
-    await appendLog(dir, entry);
+    // 상태를 먼저 저장한다. 로그 쓰기가 실패해도 못 넘긴 건·넘긴 건이 어긋나지 않게 한다(R4).
     await writePrivate(path.join(dir, 'state.json'), { pending: left, lastRun: entry, lastOkAt: entry.ok ? at : state.lastOkAt ?? null,
-      failures: entry.ok ? 0 : (state.failures ?? 0) + 1, deliveryFailures, lastRefreshAt: state.lastRefreshAt ?? null });
+      failures: entry.ok ? 0 : (state.failures ?? 0) + 1, deliveryFailures });
+    await appendLog(dir, entry).catch(() => {});
     return entry;
   });
 }
-const ARG_KEYS = new Set(['ide', 'origin', 'defaultSession', 'server', 'interval']);
+const ARG_KEYS = new Set(['ide', 'origin', 'defaultSession', 'server', 'interval', 'unaddressed', 'watcher']);
 function argsOf(argv) {
   const [command, ...rest] = argv, out = { command };
   for (let i = 0; i < rest.length; i++) {
@@ -305,14 +297,6 @@ function plist(ide, dir, interval) {
 </dict></plist>
 `;
 }
-async function claudeCommand() {
-  const found = await run('/usr/bin/which', ['claude'], 5000);
-  if (found.code === 0 && found.stdout.trim()) return found.stdout.trim();
-  for (const candidate of [path.join(os.homedir(), '.local', 'bin', 'claude'), '/opt/homebrew/bin/claude', '/usr/local/bin/claude']) {
-    try { if ((await stat(candidate)).isFile()) return candidate; } catch { /* 없음 */ }
-  }
-  return null; // 없으면 만료 때 자동 되살리기만 빠진다
-}
 async function codexCommand() {
   const found = await run('/usr/bin/which', ['codex'], 5000);
   if (found.code === 0 && found.stdout.trim()) return found.stdout.trim();
@@ -334,10 +318,17 @@ async function install(a) {
     if (path.resolve(here) !== path.resolve(dir)) await copyFile(path.join(here, file), path.join(dir, file));
     await chmod(path.join(dir, file), 0o600);
   }
-  const previous = await readJson(path.join(dir, 'config.json'));
+  const previous = await readJson(path.join(dir, 'config.json')).catch(() => null);
+  // 지정 없는 건은 계정에서 한 곳만 받는다(F1). 다시 설치할 때 생략하면 이전 값을 쓴다.
+  const unaddressed = a.unaddressed ?? previous?.unaddressed;
+  need(['receive', 'skip'].includes(unaddressed), 'UNADDRESSED_CHOICE_REQUIRED');
+  // 2.16.x 모델 방식에서 넘어올 때 옛 watcher 를 넘겨받으면 열린 건이 다시 오지 않는다(R1).
+  const adopted = a.watcher === undefined ? null : a.watcher.toLowerCase();
+  need(adopted === null || new RegExp(`^${WATCHER_PREFIX[ide]}:[0-9a-f-]{36}$`).test(adopted) && UUID.test(adopted.split(':')[1]), 'WATCHER_REJECTED');
   const config = { ide, origin, defaultSession: a.defaultSession, serverName: a.server ?? null, interval,
-    watcher: previous?.ide === ide && previous?.watcher ? previous.watcher : `${WATCHER_PREFIX[ide]}:${randomUUID()}`,
-    codexCommand: ide === 'codex' ? await codexCommand() : null, claudeCommand: ide === 'claude' ? await claudeCommand() : null, installedAt: new Date().toISOString(), version: SCRIPT_VERSION };
+    watcher: adopted ?? (previous?.ide === ide && previous?.watcher ? previous.watcher : `${WATCHER_PREFIX[ide]}:${randomUUID()}`),
+    unaddressed,
+    codexCommand: ide === 'codex' ? await codexCommand() : null, installedAt: new Date().toISOString(), version: SCRIPT_VERSION };
   need(ide !== 'codex' || config.codexCommand, 'CODEX_CLI_NOT_FOUND');
   await writePrivate(path.join(dir, 'config.json'), config);
   await mkdir(path.dirname(plistPath(ide)), { recursive: true });
@@ -351,7 +342,7 @@ async function install(a) {
   }
   need(loaded.code === 0, 'SCHEDULE_REGISTER_FAILED');
   const first = await runOnce(ide, { dir });
-  return { installed: true, ide, dir, schedule: label(ide), intervalSec: interval, watcher: config.watcher, defaultSession: config.defaultSession, firstRun: first };
+  return { installed: true, ide, dir, schedule: label(ide), intervalSec: interval, watcher: config.watcher, defaultSession: config.defaultSession, unaddressed: config.unaddressed, firstRun: first };
 }
 async function status(a) {
   const ide = a.ide; need(IDES.includes(ide), 'IDE_REQUIRED');
@@ -365,7 +356,7 @@ async function status(a) {
   const stale = !last || Date.now() - Date.parse(last.at) > 3 * interval * 1000;
   const attention = unreadable ?? (!loaded ? 'SCHEDULE_NOT_LOADED' : stale ? 'NOT_RUNNING' : last && !last.ok ? last.code
     : (state?.deliveryFailures ?? 0) >= 3 ? 'DELIVERY_FAILING' : null);
-  return { installed: Boolean(config), ide, scheduleLoaded: loaded, intervalSec: interval, defaultSession: config?.defaultSession ?? null, watcher: config?.watcher ?? null,
+  return { installed: Boolean(config), ide, scheduleLoaded: loaded, intervalSec: interval, defaultSession: config?.defaultSession ?? null, unaddressed: config?.unaddressed ?? null, watcher: config?.watcher ?? null,
     installedScriptVersion: config?.version ?? null, pluginScriptVersion: SCRIPT_VERSION,
     lastRun: last, lastOkAt: state?.lastOkAt ?? null, consecutiveFailures: state?.failures ?? 0, deliveryFailures: state?.deliveryFailures ?? 0,
     pending: state?.pending?.length ?? 0, attention };
