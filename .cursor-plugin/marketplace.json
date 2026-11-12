@@ -9,8 +9,8 @@
       "name": "dev",
       "displayName": "DEV.MADANG",
       "source": "./plugins/madang-cursor",
-      "description": "DEV.MADANG 연결 한 번으로 끝내요 — MCP(로그인 창으로 인증)와 /dev-start · /dev-go · /dev-fix · /dev-next · /dev-runbook · /dev-collaborate 스킬, 상시 규칙이 함께 들어와요",
-      "version": "2.15.3"
+      "description": "DEV.MADANG 연결 한 번으로 끝내요 — MCP(로그인 창으로 인증)와 /dev-start · /dev-go · /dev-fix · /dev-next · /dev-runbook · /dev-collaborate · /dev-watch 스킬, 상시 규칙이 함께 들어와요",
+      "version": "2.16.0"
     },
     {
       "name": "docs",
