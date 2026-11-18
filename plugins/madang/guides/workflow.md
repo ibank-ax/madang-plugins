@@ -7,7 +7,7 @@
 모든 절차에 최우선 적용한다. 역할·계획·보고·승인은 실제로 필요할 때만 두고, 실제 도구 권한과 사람 시험·본인인증은 지킨다.
 
 # 개발 가이드 · dev18.v1
-> guideVersion: 2.18.0 · sourceDigest: c5310ebb4d71dd2052823955609e18a86a3c517ce29afd265bc0ead45d1fe008
+> guideVersion: 2.19.0 · sourceDigest: 0ef73f52b8450e0c2e5977c18a5938f4583d854ee9508ab40175f3c5ce734506
 
 - 프로젝트의 실제 workflowVersion·runId를 조회해요. dev12.v1의 구 번호와 dev18.v1의 안정 단계 키를 섞지 않고, 새 18단계 실행은 버전을 지원하는 서버의 run API로 진행해요.
 - 기존 단계 ID·번호·보고·결정·첨부·배포 기록을 보존하고 완료 상태를 새 번호로 복제하지 않아요.
