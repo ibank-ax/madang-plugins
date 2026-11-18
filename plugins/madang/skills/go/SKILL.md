@@ -1,6 +1,6 @@
 ---
 name: go
-description: DEV.MADANG 의 실제 흐름 버전에 맞춰 한 호출에 한 단계만 수행하고 보고해요. dev12.v1은 메인 에이전트 또는 사람이 현재 보고를 검토하고, dev18.v1은 근거 판정 결과를 PM·상위 실행에 인계해요. 전체 목표를 위임받은 상위 실행은 다음 허용 단계·독립 작업을 이어가요. `/loop 30m /dev:go` 로 반복해요.
+description: DEV.MADANG 의 실제 흐름 버전에 맞춰 한 호출에 한 단계만 수행하고 보고해요. dev12.v1은 메인 에이전트 또는 사람이 현재 보고를 검토하고, dev18.v1은 근거 판정 결과를 프로젝트 메인에 인계해요. 전체 목표를 맡은 프로젝트 메인은 다음 허용 단계·독립 작업을 이어가요. `/loop 30m /dev:go` 로 반복해요.
 ---
 
 ## 글로벌 최우선 공통 규칙
@@ -15,7 +15,7 @@ description: DEV.MADANG 의 실제 흐름 버전에 맞춰 한 호출에 한 단
 
 `.madang/project.json` 의 DEV.MADANG 프로젝트에서 실제 workflowVersion 의 **한 단계**만 수행하고 보고한다. 인자(프로젝트 코드)는 선택이다.
 
-세션·수신함·회신은 `/dev:collaborate`를 함께 적용한다. 검토·결정은 사람 또는 프로젝트 메인 에이전트가 한다.
+세션·수신함·회신은 `/dev:collaborate`를 함께 적용한다. 검토·결정은 사람 또는 프로젝트 메인 에이전트(대표 개발자 계정의 세션)가 한다.
 
 운영 전환 전에는 프로젝트 developer 누구나 단계를 진행·보고한다. 여러 연결이 함께 일하면 `/dev:collaborate` 수신함으로 같은 단계를 겹쳐 보고하지 않게 나눈다.
 
@@ -38,7 +38,7 @@ description: DEV.MADANG 의 실제 흐름 버전에 맞춰 한 호출에 한 단
 3. 필요한 역할만 실제로 불러 `record_lifecycle_role_assignment`(roleId·engine·executionRef·stageKey·status·expectedVersion·requestKey·handoff)로 기록한다.
 4. 구현 → 커밋 → 푸시 → 배포 → 원격 확인(6절의 빠른 길) → `report_lifecycle_stage`(runId·workflowVersion·stageKey·issueId·guideVersion/sourceDigest·run 고정 wikiRefs·artifactRefs/evidenceIds·expectedVersion·UUID requestKey). 응답 유실이면 같은 입력·키로 재조회한다.
 5. `complete_lifecycle_stage`(reportId·evidenceIds)로 서버 판정을 확인한다. progress=100·결정 답·역할 배정만으로 완료라 하지 않는다.
-6. 결과·남은 조건·재개 참조(run/stage/version/requestKey)를 PM·상위 실행에 넘긴다. 사람만 할 일은 같은 issueId 에 요청하고 그 의존 작업만 대기한다.
+6. 결과·남은 조건·재개 참조(run/stage/version/requestKey)를 프로젝트 메인에 넘긴다(자기가 메인이면 다음 허용 단계를 잇는다). 사람만 할 일은 같은 issueId 에 요청하고 그 의존 작업만 대기한다.
 
 ## 4. dev12.v1 한 단계
 
@@ -66,7 +66,7 @@ description: DEV.MADANG 의 실제 흐름 버전에 맞춰 한 호출에 한 단
 
 ## 7. 한 번에 한 단계
 
-- 한 호출 한 단계는 말단 보고·판정 과업의 경계다. 전체 사용자 목표를 종료하라는 뜻이 아니다. 전체 목표를 위임받은 상위 실행은 서버 판정을 확인하고 다음 단계를 잇되 같은 승인을 반복 요청하지 않는다. 현황은 `get_lifecycle({ project })`.
+- 한 호출 한 단계는 말단 보고·판정 과업의 경계다. 전체 사용자 목표를 종료하라는 뜻이 아니다. 전체 목표를 맡은 세션(프로젝트 메인, 또는 하위를 낸 부모 세션)은 서버 판정을 확인하고 다음 단계를 잇되 같은 승인을 반복 요청하지 않는다. 현황은 `get_lifecycle({ project })`.
 - 남길 교훈이 있으면 멈추기 전에 `runbook_propose({ category, op, path, content, reason, evidence, project: "<코드>" })` 로 제안한다. 없으면 건너뛴다.
 
 ## 8. 출력 형식(고정)
