@@ -58,7 +58,7 @@ disable-model-invocation: true
 
 ## 7. 시작 지점 정하기
 
-- `get_lifecycle_run`과 `get_lifecycle`의 실제 `workflowVersion`·현재 단계·`waitingFor`를 확인한다. dev18이면 `get_workflow_definition({ workflowVersion: "dev18.v1" })`·현재 프로젝트 workflow 가이드로 단계/필수 산출을 읽는다. dev12이면 `get_next_directive`·현재 lifecycle 응답의 단계·deliverables를 사용한다. 예전 12단계 표나 파일 번호를 다른 버전에 적용하지 않는다.
+- `get_lifecycle_run`과 `get_lifecycle`의 실제 `workflowVersion`·현재 단계·`waitingFor`를 확인한다. dev18 중도 인수 후 현재 업무는 `workStageKey`, 원래 실행에서 검토할 단계는 `reviewStageKey`로 확인한다. dev18이면 `get_workflow_definition({ workflowVersion: "dev18.v1" })`·현재 프로젝트 workflow 가이드로 단계/필수 산출을 읽는다. dev12이면 `get_next_directive`·현재 lifecycle 응답의 단계·deliverables를 사용한다. 예전 12단계 표나 파일 번호를 다른 버전에 적용하지 않는다.
 - `not_started`이면 조회한 정의의 필수 산출과 기존 자료를 대조해 시작 후보와 누락·근거·`planUrl`을 제시한다. 서버가 현재 단계 설정을 사람에게만 열면 해당 설정 의존만 기다린다. 현재 도구가 허용하지 않은 단계 전환·run 활성화를 추정해서 수행하지 않는다. 이미 위임된 독립 준비는 계속한다.
 - 이어갈 run이 있으면 고정 run·stage·판본·wikiRefs를 보존하고 다음 절로 간다. 정책·요구·판본이 달라진 관련 근거만 다시 확인하며 전체 흐름을 재시작하지 않는다.
 
