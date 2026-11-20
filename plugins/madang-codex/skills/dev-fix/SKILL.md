@@ -35,7 +35,8 @@ DEV.MADANG 에 등록된 검수 이슈 `<이슈번호>` 를 처리한다. 사람
 
 ## 3. 시작 표시
 
-- `start_fix({ issue: "<이슈번호>" })` — 이슈가 `fixing`(수정중)이 된다.
+- `get_issue({ issue: "<이슈번호>" })`에서 `latestFixRequest`와 연결된 `pr`을 확인한다. 수정 요청은 프로젝트 개발자·관리자에게 표시된다. 권한이 없거나 조회가 실패하면 요청 유무는 미확인이다.
+- 실제 수정 착수를 기록할 때 `start_fix({ issue: "<이슈번호>" })`를 쓴다. 이미 진행한 작업의 결과를 남길 때는 7절로 간다.
 
 ## 4. 브랜치
 
@@ -52,11 +53,13 @@ DEV.MADANG 에 등록된 검수 이슈 `<이슈번호>` 를 처리한다. 사람
 ## 6. PR
 
 - 커밋 `fix(<이슈번호>): <한 줄 요약>`(본문에 원인과 `Madang-Issue: <이슈번호>`) → 작업 브랜치 게시 → `gh pr create --title "<이슈번호> <제목>" --body-file .madang/<이슈번호>/pr.md`(## 원인 / ## 변경 / ## 검증 / ## 미해결, 첫 줄에 이슈 주소). 저장소에 `madang` 라벨이 있을 때만(`gh label list --search madang`) `--label madang` 을 붙인다.
-- `attach_pull_request({ issue: "<이슈번호>", prUrl })` 로 연결하고 응답의 `deployPolicy`·`deployPolicyReasonCode`·`approvalId`를 읽는다. PR이 있으면 별도 `request_deployment`로 같은 배포를 중복 요청하지 않는다.
+- 같은 PR이 이미 연결됐으면 기존 연결을 재사용한다. 연결이 필요하면 `attach_pull_request({ issue: "<이슈번호>", prUrl })` 로 연결하고 응답의 `deployPolicy`·`deployPolicyReasonCode`·`approvalId`를 읽는다. PR이 있으면 별도 `request_deployment`로 같은 배포를 중복 요청하지 않는다.
 
 ## 7. 완료 전에 결과 보고
 
-- PR 연결 직후, 배포·근거 제출·`update_issue_status` done보다 먼저 `report_fix_result({ issue: "<이슈번호>", outcome, summary, root_cause, changes: [{ file, what }], verification: { commands, passed, notes }, manual_check, pr_url, open_questions, risk, confidence })`. outcome 은 `fixed`·`partial`·`needs_human`·`cannot_reproduce`·`not_a_bug`. 원격 검수 전 항목을 통과로 쓰지 않는다.
+- 최신 수정 요청이 있고 상태가 `closed`·`superseded` 이외이면 그 요청의 수신자가 PR 연결 직후, 배포·근거 제출·`update_issue_status` done보다 먼저 `report_fix_result({ issue: "<이슈번호>", outcome, summary, root_cause, changes: [{ file, what }], verification: { commands, passed, notes }, manual_check, pr_url, open_questions, risk, confidence })`. outcome 은 `fixed`·`partial`·`needs_human`·`cannot_reproduce`·`not_a_bug`. 원격 검수 전 항목을 통과로 쓰지 않는다.
+- 별도 수정 요청이 없는 내부 이슈(`latestFixRequest=null`)이거나 요청이 종료·대체됐으면 `add_issue_comment({ issue: "<이슈번호>", body })`로 원 이슈에 PR 링크, 검증한 판본, 시험 결과와 미확인 항목을 남긴다. 이미 같은 PR·검증 댓글이 있으면 재사용하고 새 결과만 추가한다. 보고용 수정 요청은 만들지 않는다.
+- 다른 수신자의 수정 요청은 그 수신자가 보고한다.
 - `prAttachment.attached=false`·`reasonCode=FORBIDDEN_SCOPE`면 보고는 저장됐다. 같은 보고를 다시 제출하지 말고 재인가 후 PR 연결만 잇는다. 원인이 불확실하면 `needs_human`.
 
 ## 8. 배포·근거·완료
