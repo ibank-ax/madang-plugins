@@ -34,7 +34,7 @@
 - 공통 위키 「깃 기반 원격 배포」를 `runbook_get`의 ID `common.development.06-deploy-release.01-git-remote-deploy`로 조회한다. 각 웹 원본의 활성 빌드를 요청 SHA와 대조한다. HTTP 포트가 없는 워커는 등록된 제품 검사기로 실행 중인 판본과 지정한 워커의 실제 작업 응답을 함께 확인한다.
 - 이미지 배포는 빌드 번호에 실제 체크아웃 SHA와 발행한 이미지 digest를 연결한다. 체크아웃이 요청 SHA와 일치하는지, 각 대상의 준비된 파드가 해당 digest를 제공하는지 확인한다. 이미지 인덱스를 쓴 경우 대상 플랫폼의 manifest digest와 대조한다.
 - 논리 DB와 실행기는 한 번 등록한다. `list_database_migration_candidates`의 후보 ID·지문·등록 판본을 `register_database_change_target`의 `registration`에 `requestKey`, `candidateId`, `candidateDigest`, `expectedVersion`, `state: active`로 전달한다. 등록 결과는 원 요청 키·동일 입력으로 확인한다. 후보·등록 도구가 없으면 `list_database_change_targets`에 이미 등록된 대상만 재사용하고, 새 대상은 미지원으로 알린다.
-- 커밋마다 대상의 실제 변경 파일·판본·작업 지문을 대조한다. `request_database_change`의 `request`에 `requestKey`·`environment`·`revision`과 `mode: plan`을 보내 계획을 받고 원 `changeId`로 `apply_database_change`를 호출한다. 처음부터 `mode: apply`라면 선택한 모든 대상의 `expectedActionDigests`가 필요하다. `list_database_changes`·`get_database_change`로 이력과 실제 DB 판본·결과를 확인한다. 부분 적용·응답 유실은 원 변경에 `reconcile_database_change`로 대조한다. 앱 배포와 함께 요청할 때 해당 `deploymentId`를 연결하고 운영 전환 후에는 정해진 사람 승인 절차를 따른다.
+- 커밋별 변경 파일과 등록된 판본을 대조한다. `request_database_change`의 `request` 예시는 `{"requestKey":"<UUID>","environment":"<등록 환경>","revision":"<등록 판본>","mode":"plan","targetKeys":["<선택한 대상 키>"]}`이다. 같은 환경·판본에 후보가 여러 개면 적용할 `targetKeys`를 지정한다. 앱 배포와 함께 요청하면 `deploymentId`를 넣는다. 계획이 반환한 `id`를 `changeId`로 전달해 `apply_database_change`를 호출한다. `list_database_changes`·`get_database_change`로 이력과 실제 DB 판본·결과를 확인한다. 부분 적용·응답 유실은 같은 변경 번호로 `reconcile_database_change`를 호출한다. 운영 전환 뒤에는 고정 범위에 대한 사람 승인을 따른다.
 
 ## 배포·근거·완료
 
