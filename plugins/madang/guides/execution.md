@@ -18,17 +18,23 @@
 
 ## 서버 등록과 보호 연결
 
-1. `list_servers`와 `get_project_environment_policy`에서 기존 환경·서버 ID를 찾는다. 등록된 보호 연결은 `list_protected_connections`로 조회한다. 사용자가 새로 작성한 비밀 없는 자유문 설명이나 정형 필드를 기존 프로젝트·환경·서버명·주소·역할과 대조하고, 같은 주소가 여러 환경에 있으면 `serverId`로 확인한다. 역할은 고객이 쓰는 이름을 여러 개 보존한다. 접속 계정·포트는 실제 접속에 필요할 때 확인한다. 이미 확인한 값은 재사용하고, 빠졌거나 서로 다른 값만 모아 묻는다. 확인 전에는 저장 API의 기본 환경·포트를 사실로 채우지 않는다.
-2. 확인된 메타데이터는 `save_project_server`로 저장하고 같은 서버 ID를 되읽는다. **보호 연결**은 DEV가 허용한 작업에서 해당 프로젝트·환경·서버의 자격을 쓰도록 연결 ID·종류·용도·버전을 묶어 관리하는 참조다. SSH 키·인증서 중 어떤 수단을 쓸지는 그 연결의 용도와 실제 검증 결과로 판단한다. 같은 서버의 저장된 자격·후보는 원 요청에서 재사용하고, 사람이 처음 제공할 비밀만 독립 보호 입력으로 받는다.
-3. 미등록 서버의 접근 준비는 맡긴 범위에서 `onboard_project_server`로 수행한다. 기존 서버의 관리 SSH 연결 채택은 `register_server_connection`의 실제 조건(고정 호스트키·저장된 관리 키·검증)이 맞을 때 수행한다. 역할 이름을 등록해도 접속·배포 권한은 생기지 않는다. DEV 발급 기한부 인증서로 직접 접속할 때는 대상 `serverId`와 `allowKeyInstall:false`로 `setup_server_access`를 요청하고 `method=certificate`와 만료를 확인한다.
+1. 현재 연결의 MCP 도구 목록과 입력 스키마를 확인한다. `list_servers`·`get_project_environment_policy`로 프로젝트·환경·서버 ID와 고객의 복수 역할명을 대조한다. `list_protected_connections`로 기존 연결을 확인한다.
+2. `prepare_project_server_registration`과 `get_project_server_registration`이 있으면 호출 전에 UUID를 보관한다. 최초 `request`에 `requestId`, `expectedVersion: 0`과 정형 `fields` 또는 비밀 없는 `description`을 보낸다. 자유문의 후보 추출·검증은 DEV가 수행한다. `needs_input`이면 `missing`·`candidates`를 보고 같은 UUID·현재 판본에 필요한 `fields`만 보완한다. `ready`이면 같은 UUID·판본과 `confirm:true`만 보내 확정한다. 응답 유실 시 원 `requestId`를 조회해 `saved`와 `serverId`를 확인한다. 최초 접수 전임이 확인되면 원 UUID와 같은 입력으로 재개한다.
+3. 등록 준비·조회 도구 중 하나라도 목록에 없으면 지원되는 조회로 대상을 대조한다. 사용자가 명시한 정형값만 `save_project_server`의 현재 스키마와 권한에 맞게 저장하고 `get_server`로 같은 ID를 확인한다. 누락된 환경·포트를 기본값으로 추정하지 않는다. 자유문만 있거나 대상이 모호하면 필요한 필드·후보를 알리고 정형 보완을 기다린다. 이 경우 자동 저장·별도 모델 호출을 하지 않는다. 도구 미노출, 호출의 권한 거절, 응답의 입력 부족을 구분하며 거절된 요청을 다른 저장 경로로 보내지 않는다.
+
+**보호 연결**은 해당 프로젝트·환경·서버의 연결 ID·용도·버전에 자격을 결속한다. SSH 키·인증서는 실제 검증 결과에 따라 사용한다. 기존 자격을 재사용하고 사람이 처음 제공할 비밀만 독립 보호 입력으로 받는다.
+
+미등록 서버의 접근 준비는 맡긴 범위에서 `onboard_project_server`로 수행한다. 기존 서버의 관리 SSH 연결 채택은 `register_server_connection`의 실제 조건(고정 호스트키·저장된 관리 키·검증)이 맞을 때 수행한다. 역할 이름을 등록해도 접속·배포 권한은 생기지 않는다. DEV 발급 기한부 인증서로 직접 접속할 때는 대상 `serverId`와 `allowKeyInstall:false`로 `setup_server_access`를 요청하고 `method=certificate`와 만료를 확인한다.
 
 ## 배포 대상과 CI
 
 - 등록된 환경에서 **실행 서버**(기존 제품 스크립트를 시작할 곳)와 **반영 대상**(실제 버전을 바꿀 서버·역할)을 확인한다. 관리 서버가 여러 노드를 전환하는 제품은 같은 스크립트를 한 번만 호출한다. 요청 시 대상 선택은 설치된 스키마와 제품 스크립트가 그 범위를 모두 지원할 때 사용한다. 지원되지 않는 조합은 실행 전에 알려주며 전체 배포로 확대하지 않는다.
+- 배포기를 처음 연결할 때 `register_deploy_installation`이 있으면 `mode: dispatch`·`confirm:true`와 고정한 `requestKey`로 등록한다. `proposal`에 제품 저장소·이슈·병합 PR 번호·전체 커밋 SHA·대상 선택을 고정한다. 공급이 필요하면 기존 제품 절차를 사용하고 원 공급 작업의 `supplyRequestKey`를 같은 등록 요청에 보완한다. `mode: reconcile`·`confirm:true`로 같은 키를 조회해 설치 실측과 `registered`를 확인한다. 등록된 설정은 재사용한다. 도구가 없으면 `get_deploy_config`로 기존 설정을 조회하고 새 설치 등록은 미지원으로 알린다. 이후 실제 배포는 `request_deployment`로 요청하고 `get_deployment`로 원 배포의 커밋·대상별 근거를 확인한다. 근거가 빠진 대상은 미확인으로 기록한다.
 - 협업 Git의 PR 검사에서 사내 러너가 지원하는 작업을 우선한다. 외부 호스팅이 필요한 보호 검사·호환성 검사는 근거와 실제 러너를 확인한다. 기본 라벨이나 변수 설정만 보고 비용 절감을 확정하지 않는다. CI 통과 후 등록된 경로로 고정 커밋·대상·목적을 전달하고 제품별 기존 배포 스크립트를 실행한다. 선택한 구성요소별 제공 버전과 readiness를 읽고 핵심 흐름을 확인한다. 결과가 불명확하면 같은 배포를 조회한다.
 - 공통 위키 「깃 기반 원격 배포」를 `runbook_get`의 ID `common.development.06-deploy-release.01-git-remote-deploy`로 조회한다. 각 웹 원본의 활성 빌드를 요청 SHA와 대조한다. HTTP 포트가 없는 워커는 등록된 제품 검사기로 실행 중인 판본과 지정한 워커의 실제 작업 응답을 함께 확인한다.
 - 이미지 배포는 빌드 번호에 실제 체크아웃 SHA와 발행한 이미지 digest를 연결한다. 체크아웃이 요청 SHA와 일치하는지, 각 대상의 준비된 파드가 해당 digest를 제공하는지 확인한다. 이미지 인덱스를 쓴 경우 대상 플랫폼의 manifest digest와 대조한다.
-- DB 변경은 등록 환경의 논리 DB, 현재·목표 migration 판본, 쓰기 노드와 제품의 기존 도구를 대조한다. 적용되는 변경과 앱 호환 범위를 확인해 논리 DB마다 1회 실행하고 실제 스키마 판본·효과를 읽는다. 부분 적용은 이미 끝난 단위를 보존해 같은 작업에서 확인한다. 추가 검증·복구 조건은 아래 정책과 변경의 실제 위험을 따른다. 공통 플러그인이 임의 SQL 실행이나 모든 DB 종류의 자동 재개를 제공한다고 가정하지 않는다.
+- 논리 DB와 실행기는 한 번 등록한다. `list_database_migration_candidates`의 후보 ID·지문·등록 판본을 `register_database_change_target`의 `registration`에 `requestKey`, `candidateId`, `candidateDigest`, `expectedVersion`, `state: active`로 전달한다. 등록 결과는 원 요청 키·동일 입력으로 확인한다. 후보·등록 도구가 없으면 `list_database_change_targets`에 이미 등록된 대상만 재사용하고, 새 대상은 미지원으로 알린다.
+- 커밋별 변경 파일과 등록된 판본을 대조한다. `request_database_change`의 `request` 예시는 `{"requestKey":"<UUID>","environment":"<등록 환경>","revision":"<등록 판본>","mode":"plan","targetKeys":["<선택한 대상 키>"]}`이다. 같은 환경·판본에 후보가 여러 개면 적용할 `targetKeys`를 지정한다. 앱 배포와 함께 요청하면 `deploymentId`를 넣는다. 계획이 반환한 `id`를 `changeId`로 전달해 `apply_database_change`를 호출한다. `list_database_changes`·`get_database_change`로 이력과 실제 DB 판본·결과를 확인한다. 부분 적용·응답 유실은 같은 변경 번호로 `reconcile_database_change`를 호출한다. 운영 전환 뒤에는 고정 범위에 대한 사람 승인을 따른다.
 
 ## 배포·근거·완료
 
