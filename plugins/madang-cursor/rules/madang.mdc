@@ -42,7 +42,7 @@ madang MCP 를 쓰는 에이전트가 **항상** 지키는 불변식이다. 절�
 ## 저장소
 
 - `.madang/` 은 커밋하지 않는다(`.git/info/exclude`). 기본 브랜치 직접 push·force push, 새 의존성 추가, 정책 `deniedPaths` 수정을 하지 않는다.
-- 수정·PR·결과는 `start_fix`·`attach_pull_request`·`report_fix_result`로 기록한다. `update_issue_status` done은 완료 관문을 충족할 때만 부른다.
+- `get_issue`에서 최신 수정 요청과 PR을 확인한다. 보고 가능한 요청은 그 수신자가 `report_fix_result`로 보고한다. 수정 요청이 없는 내부 이슈는 기존 PR을 재사용하고 필요할 때만 `attach_pull_request`로 연결한 뒤 `add_issue_comment`로 검증 결과를 남긴다. `update_issue_status` done은 완료 관문을 충족할 때만 부른다.
 
 ## 개발 위키
 
