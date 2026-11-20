@@ -18,6 +18,8 @@ import { StringDecoder } from 'node:string_decoder';
 const MAX_BUNDLE = 64 * 1024 * 1024, MAX_JSON = 1024 * 1024, CHUNK_BYTES = 2 * 1024 * 1024, MAX_RPC_BYTES = 4 * 1024 * 1024;
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const SHA = /^[a-f0-9]{40}$/, HASH = /^[a-f0-9]{64}$/;
+const PR_SUBMISSION_KIND = 'existing_pr_test_workflow_amendment';
+const PR_SUBMISSION_OPTIONS = ['pull-request', 'base-commit', 'original-operation', 'original-version'];
 const COMMANDS = new Set(['clone', 'fetch', 'pull', 'prepare-push', 'push', 'status', 'resume']);
 const stop = new AbortController();
 const digest = value => createHash('sha256').update(value).digest('hex');
@@ -44,6 +46,11 @@ Codex는 자체 app-server의 임시 메모리 컨텍스트에서 기존 OAuth �
   node dev-git-helper.mjs prepare-push <위의 대상 옵션> \\
     --expected-old-oid <기존 40자리 SHA 또는 null> --checkpoint /absolute/private/push.json
 준비 bundle은 checkpoint 옆의 비공개 캐시에 고정하며 게시·재전송 때 같은 bytes를 사용해요.
+기존 등록 PR #183·#184의 별도 새 변경 검토를 요청할 때만 prepare-push에 추가해요:
+  --pull-request <183|184> --base-commit <40자리 SHA> \\
+    [--original-operation <UUID> --original-version <양의 정수>]
+기존 branch의 null이 아닌 old-OID가 필요해요. 서버가 PR·원 작업·전체 이력을 검증하며 이 옵션은 승인이 아니에요.
+이 요청은 기존 결과 불명 작업의 재시도가 아니며, 그 작업은 원 checkpoint의 resume로 이어가요.
 준비 해시는 있는데 원래 캐시가 없으면 PREPARED_BUNDLE_MISSING으로 중단해요.
 이때 원래 해시를 다시 쓰지 않고 기존 요청·허가를 정상 절차로 정리한 뒤 새 준비를 연결해요.
 현재 서버 정책이 autonomous이면 사람 허가 없이 같은 결과물을 올려요:
@@ -397,16 +404,42 @@ async function checkpointLock(file) {
   }
   throw fail('HELPER_ALREADY_RUNNING');
 }
-function argsOf(argv) {
+export function argsOf(argv) {
   const result = { command: argv.shift() };
   need(COMMANDS.has(result.command), 'COMMAND_REQUIRED');
   while (argv.length) { const key = argv.shift(); need(/^--[a-z][a-z-]*$/.test(key) && argv.length > 0, 'ARGUMENT_REJECTED'); need(!Object.hasOwn(result, key.slice(2)), 'ARGUMENT_REJECTED'); result[key.slice(2)] = argv.shift(); }
-  const allowed = new Set(['checkpoint', 'origin', 'ide', 'server', 'project', 'issue', 'connection', 'version', 'credential-version', 'repository', 'ref', 'directory', 'environment', 'purpose', 'expected-old-oid', 'grant', 'decision', 'wait-seconds']);
+  const allowed = new Set(['checkpoint', 'origin', 'ide', 'server', 'project', 'issue', 'connection', 'version', 'credential-version', 'repository', 'ref', 'directory', 'environment', 'purpose', 'expected-old-oid', 'grant', 'decision', 'wait-seconds', ...PR_SUBMISSION_OPTIONS]);
   need(Object.keys(result).every(k => k === 'command' || allowed.has(k)), 'ARGUMENT_REJECTED');
   need(result.checkpoint, 'CHECKPOINT_REQUIRED');
+  gitPrSubmissionOptions(result);
   return result;
 }
-function newState(args) {
+function frozenPrSubmission(value, code) {
+  const keys = ['version', 'kind', 'pullRequestNumber', 'expectedBaseCommitSha', 'originalOperationId', 'originalOperationVersion'];
+  need(record(value) && Object.keys(value).every(key => keys.includes(key)) && keys.slice(0, 4).every(key => Object.hasOwn(value, key))
+    && value.version === 1 && value.kind === PR_SUBMISSION_KIND && [183, 184].includes(value.pullRequestNumber)
+    && typeof value.expectedBaseCommitSha === 'string' && SHA.test(value.expectedBaseCommitSha) && value.expectedBaseCommitSha !== '0'.repeat(40)
+    && (value.originalOperationId !== undefined) === (value.originalOperationVersion !== undefined)
+    && (value.originalOperationId === undefined || typeof value.originalOperationId === 'string' && UUID.test(value.originalOperationId) && positive(value.originalOperationVersion)), code);
+  return Object.freeze({ version: 1, kind: PR_SUBMISSION_KIND, pullRequestNumber: value.pullRequestNumber, expectedBaseCommitSha: value.expectedBaseCommitSha,
+    ...(value.originalOperationId === undefined ? {} : { originalOperationId: value.originalOperationId, originalOperationVersion: value.originalOperationVersion }) });
+}
+/** Shape only. The server verifies the registered PR, original operation and actual bundle DAG. */
+export function gitPrSubmissionOptions(args) {
+  if (!PR_SUBMISSION_OPTIONS.some(key => args[key] !== undefined)) return undefined;
+  need(args.command === 'prepare-push', 'ARGUMENT_REJECTED');
+  need(/^[1-9][0-9]*$/.test(args['pull-request'] ?? '') && /^[1-9][0-9]*$/.test(args['original-version'] ?? '1')
+    && typeof args['expected-old-oid'] === 'string' && SHA.test(args['expected-old-oid']) && args['expected-old-oid'] !== '0'.repeat(40), 'GIT_PR_SUBMISSION_REJECTED');
+  return frozenPrSubmission({ version: 1, kind: PR_SUBMISSION_KIND, pullRequestNumber: Number(args['pull-request']), expectedBaseCommitSha: args['base-commit'],
+    ...(args['original-operation'] === undefined ? {} : { originalOperationId: args['original-operation'] }),
+    ...(args['original-version'] === undefined ? {} : { originalOperationVersion: Number(args['original-version']) }) }, 'GIT_PR_SUBMISSION_REJECTED');
+}
+export function assertCheckpointSubmission(state, args) {
+  const supplied = gitPrSubmissionOptions(args);
+  if (supplied) need(state.submission !== undefined && JSON.stringify(supplied) === JSON.stringify(frozenPrSubmission(state.submission, 'CHECKPOINT_REJECTED')), 'CHECKPOINT_SUBMISSION_CHANGED');
+}
+export function newState(args) {
+  const submission = gitPrSubmissionOptions(args);
   need(args.directory && path.isAbsolute(args.directory), 'ABSOLUTE_WORKSPACE_REQUIRED');
   const state = { protocolVersion: 1, origin: originOf(args.origin), ide: args.ide, ...(args.server ? { serverName: args.server } : {}),
     projectId: Number(args.project), issueId: Number(args.issue), connectionId: args.connection, connectionVersion: Number(args.version),
@@ -420,11 +453,12 @@ function newState(args) {
   if (state.kind === 'git.push') {
     need(args['expected-old-oid'] === 'null' || SHA.test(args['expected-old-oid'] ?? ''), 'EXPECTED_OLD_OID_REQUIRED');
     state.operationId = randomUUID(); state.artifactId = randomUUID(); state.expectedOldOid = args['expected-old-oid'] === 'null' ? null : args['expected-old-oid'];
+    if (submission) state.submission = submission;
   }
   return state;
 }
-function validateState(state) {
-  const allowed = new Set(['protocolVersion', 'origin', 'ide', 'serverName', 'projectId', 'issueId', 'connectionId', 'connectionVersion', 'credentialVersion', 'repositoryId', 'ref', 'directory', 'environment', 'purpose', 'kind', 'localAction', 'requestKey', 'phase', 'operationId', 'artifactId', 'expectedOldOid', 'commitSha', 'artifactSha256', 'bundleSize', 'bundleCacheCleanup', 'artifactRequest', 'artifactReceipt', 'grantId', 'decisionId', 'operationRequest', 'operation', 'resumeRequest', 'resumeReceipt', 'download', 'localBeforeSha']);
+export function validateState(state) {
+  const allowed = new Set(['protocolVersion', 'origin', 'ide', 'serverName', 'projectId', 'issueId', 'connectionId', 'connectionVersion', 'credentialVersion', 'repositoryId', 'ref', 'directory', 'environment', 'purpose', 'kind', 'localAction', 'requestKey', 'phase', 'operationId', 'artifactId', 'expectedOldOid', 'commitSha', 'artifactSha256', 'bundleSize', 'bundleCacheCleanup', 'artifactRequest', 'artifactReceipt', 'grantId', 'decisionId', 'operationRequest', 'operation', 'resumeRequest', 'resumeReceipt', 'download', 'localBeforeSha', 'submission']);
   need(record(state) && Object.keys(state).every(k => allowed.has(k)) && state.protocolVersion === 1 && originOf(state.origin) === state.origin
     && ['codex', 'claude'].includes(state.ide) && [state.projectId, state.issueId, state.connectionVersion, state.credentialVersion, state.repositoryId].every(positive)
     && UUID.test(state.connectionId) && UUID.test(state.requestKey) && validRef(state.ref) && path.isAbsolute(state.directory)
@@ -432,6 +466,16 @@ function validateState(state) {
     && /^[a-z][a-z0-9_-]{0,31}$/.test(state.environment) && ['development', 'verification', 'operations'].includes(state.purpose), 'CHECKPOINT_REJECTED');
   if (state.operationId !== undefined) need(UUID.test(state.operationId), 'CHECKPOINT_REJECTED');
   if (state.kind === 'git.push') need(UUID.test(state.artifactId) && UUID.test(state.operationId) && (state.expectedOldOid === null || SHA.test(state.expectedOldOid)), 'CHECKPOINT_REJECTED');
+  if (state.submission !== undefined) {
+    need(state.kind === 'git.push' && state.localAction === 'prepare-push' && typeof state.expectedOldOid === 'string'
+      && SHA.test(state.expectedOldOid) && state.expectedOldOid !== '0'.repeat(40), 'CHECKPOINT_REJECTED');
+    state.submission = frozenPrSubmission(state.submission, 'CHECKPOINT_REJECTED');
+  }
+  const savedSubmission = state.operationRequest?.parameters?.submission;
+  if (state.submission !== undefined || savedSubmission !== undefined) {
+    if (state.operationRequest !== undefined) need(savedSubmission !== undefined && state.submission !== undefined
+      && JSON.stringify(frozenPrSubmission(savedSubmission, 'CHECKPOINT_REJECTED')) === JSON.stringify(state.submission), 'CHECKPOINT_REJECTED');
+  }
   if (state.commitSha !== undefined) need(SHA.test(state.commitSha), 'CHECKPOINT_REJECTED');
   if (state.artifactSha256 !== undefined) need(HASH.test(state.artifactSha256) && positive(state.bundleSize) && state.bundleSize <= MAX_BUNDLE, 'CHECKPOINT_REJECTED');
   need(state.grantId === undefined && state.decisionId === undefined || UUID.test(state.grantId) && positive(state.decisionId), 'CHECKPOINT_REJECTED');
@@ -471,6 +515,10 @@ export function operationRequest(state) {
     environment: state.environment, purpose: state.purpose, targetId: state.connectionId, parameters };
   if (state.kind === 'git.push') {
     Object.assign(parameters, { commitSha: state.commitSha, expectedOldOid: state.expectedOldOid, artifactId: state.artifactId, artifactSha256: state.artifactSha256 });
+    if (state.submission !== undefined) {
+      need(typeof state.expectedOldOid === 'string' && SHA.test(state.expectedOldOid) && state.expectedOldOid !== '0'.repeat(40), 'GIT_PR_SUBMISSION_REJECTED');
+      parameters.submission = frozenPrSubmission(state.submission, 'GIT_PR_SUBMISSION_REJECTED');
+    }
     Object.assign(request, { operationId: state.operationId, artifactRevision: state.commitSha,
       ...(state.grantId ? { grantId: state.grantId, decisionId: state.decisionId } : {}) });
   }
@@ -519,6 +567,7 @@ function summary(state) {
   return { protocolVersion: 1, phase: state.phase, kind: state.kind, requestKey: state.requestKey,
     ...(state.operationId ? { operationId: state.operationId } : {}), ...(state.operation ? { operation: state.operation } : {}),
     ...(state.commitSha ? { commitSha: state.commitSha } : {}), ...(state.download ? { download: state.download } : {}),
+    ...(state.submission ? { submission: state.submission } : {}),
     ...(state.bundleCacheCleanup ? { bundleCacheCleanup: state.bundleCacheCleanup } : {}),
     ...(state.kind === 'git.push' && state.artifactSha256 ? { approvalBinding: { operationId: state.operationId, artifactId: state.artifactId,
       repositoryId: state.repositoryId, connectionId: state.connectionId, credentialVersion: state.credentialVersion, ref: state.ref, commitSha: state.commitSha,
@@ -529,11 +578,12 @@ function preparedCachePaths(state, file) {
   const ready = `${file}.${state.artifactId}.prepared-bundle`;
   return { ready, pending: `${ready}.pending` };
 }
-function preparedCacheBinding(state, commitSha) {
+export function preparedCacheBinding(state, commitSha) {
   return { origin: state.origin, ide: state.ide, serverName: state.serverName ?? null, directory: state.directory,
     requestKey: state.requestKey, operationId: state.operationId, artifactId: state.artifactId, projectId: state.projectId,
     issueId: state.issueId, connectionId: state.connectionId, connectionVersion: state.connectionVersion, credentialVersion: state.credentialVersion,
-    repositoryId: state.repositoryId, environment: state.environment, purpose: state.purpose, ref: state.ref, expectedOldOid: state.expectedOldOid, commitSha };
+    repositoryId: state.repositoryId, environment: state.environment, purpose: state.purpose, ref: state.ref, expectedOldOid: state.expectedOldOid, commitSha,
+    ...(state.submission ? { submission: state.submission } : {}) };
 }
 async function syncParent(file) {
   const directory = await open(path.dirname(file), constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
@@ -711,6 +761,7 @@ async function run(args) {
         need(supplied === state[key], 'CHECKPOINT_TARGET_CHANGED');
       }
     }
+    assertCheckpointSubmission(state, args);
     api = new DevGitApi(state); const operationRoute = `/api/projects/${state.projectId}/operations`;
     const waitSeconds = Number(args['wait-seconds'] ?? '45'); need(Number.isInteger(waitSeconds) && waitSeconds >= 0 && waitSeconds <= 600, 'WAIT_REJECTED');
     if (args.command === 'prepare-push') { need(state.kind === 'git.push', 'CHECKPOINT_KIND_MISMATCH'); const bytes = await preparePush(state, file); bytes.fill(0); emit(summary(state)); return; }
