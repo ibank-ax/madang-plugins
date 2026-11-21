@@ -690,14 +690,23 @@ async function cleanupPreparedCache(state, file) {
   } catch (error) { return { status: 'retained', errorCode: /^[A-Z][A-Z0-9_]{1,79}$/.test(error.safeCode ?? '') ? error.safeCode : 'PREPARED_BUNDLE_CLEANUP_UNAVAILABLE' }; }
   finally { cached?.bytes.fill(0); }
 }
-async function waitOperation(state, file, api, waitSeconds) {
-  const deadline = Date.now() + waitSeconds * 1000;
-  while (true) {
-    const value = await api.request(`/api/projects/${state.projectId}/operations/${state.operationId}`);
-    state.operation = operationView(value, state); await storeCheckpoint(file, state);
-    if (['succeeded', 'failed', 'blocked', 'unknown', 'cancelled', 'awaiting_human'].includes(state.operation.status) || Date.now() >= deadline) return;
-    try { await delay(1500, undefined, { signal: stop.signal }); } catch { throw fail('HELPER_INTERRUPTED'); }
-  }
+export async function waitOperation(state, api, waitSeconds, { command, saveCheckpoint, now = Date.now, sleep = delay }) {
+  const deadline = now() + waitSeconds * 1000;
+  let waitingForAutomaticReconciliation = false;
+  do {
+    const value = await api.request(`/api/projects/${state.projectId}/operations/${state.operationId}`, { method: 'GET' });
+    state.operation = operationView(value, state); await saveCheckpoint(state);
+    const { status, errorCode } = state.operation;
+    const remaining = deadline - now();
+    if (remaining <= 0 || ['succeeded', 'failed', 'blocked', 'cancelled', 'awaiting_human'].includes(status)) return;
+    if (status === 'unknown') {
+      if (command !== 'push' || state.kind !== 'git.push' || errorCode !== 'CREDENTIAL_REMOTE_UNKNOWN') return;
+      // Dispatch already queues a read-only reconciliation on the same server operation.
+      waitingForAutomaticReconciliation = true;
+    }
+    const interval = waitingForAutomaticReconciliation ? Math.min(1500, remaining) : 1500;
+    try { await sleep(interval, undefined, { signal: stop.signal }); } catch { throw fail('HELPER_INTERRUPTED'); }
+  } while (!waitingForAutomaticReconciliation || now() < deadline);
 }
 async function downloadAndApply(state, file, api) {
   if (state.phase === 'local_complete') return;
@@ -810,7 +819,7 @@ async function run(args) {
         await storeCheckpoint(file, state);
       }
     }
-    await waitOperation(state, file, api, waitSeconds);
+    await waitOperation(state, api, waitSeconds, { command: args.command, saveCheckpoint: current => storeCheckpoint(file, current) });
     if (state.operation.status === 'succeeded') {
       if (state.kind === 'git.push') {
         state.phase = 'remote_complete'; await storeCheckpoint(file, state);
